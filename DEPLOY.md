@@ -26,7 +26,7 @@ sudo apt install docker-compose-plugin -y
 
 1.  **Cloner le dépôt** (remplacez l'URL par la vôtre) :
     ```bash
-    git clone https://github.com/VOTRE-PSEUDO/VOTRE-REPO.git botpolymarket
+    git clone https://github.com/agentblancssh-ai/botpolymarket.git
     cd botpolymarket
     ```
 
