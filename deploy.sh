@@ -7,7 +7,7 @@ echo "🚀 Démarrage du déploiement..."
 
 # 1. Récupérer les dernières modifications du code
 echo "📥 Pull du code depuis GitHub..."
-git pull origin master
+git pull origin main
 
 # 2. Reconstruire et redémarrer les conteneurs
 echo "🔄 Redémarrage des conteneurs Docker..."
