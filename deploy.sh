@@ -11,8 +11,8 @@ git pull origin main
 
 # 2. Reconstruire et redémarrer les conteneurs
 echo "🔄 Redémarrage des conteneurs Docker..."
-docker-compose down
-docker-compose up -d --build
+docker compose down
+docker compose up -d --build
 
 # 3. Nettoyage des images inutilisées (optionnel mais recommandé)
 echo "🧹 Nettoyage du système..."
