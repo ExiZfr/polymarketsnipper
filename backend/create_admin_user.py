@@ -1,8 +1,13 @@
-from database import SessionLocal
+from database import SessionLocal, engine, Base
 from models import User
 from auth import get_password_hash
 
 def create_admin():
+    # Create all tables first
+    print("Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created.")
+    
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.username == "admin").first()
