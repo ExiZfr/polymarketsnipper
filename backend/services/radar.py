@@ -4,6 +4,14 @@ import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 import time
+import sys
+sys.path.append('/app')
+
+try:
+    from services.telegram_notifier import telegram_notifier
+except ImportError:
+    logger.warning("⚠️ Telegram notifier not available")
+    telegram_notifier = None
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +61,7 @@ class PolymarketRadar:
             'timestamp': None,
             'ttl': cache_ttl_seconds
         }
+        self._notified_critical_markets = set()  # Track markets we've already notified about
 
     def _is_cache_valid(self) -> bool:
         """Check if cached data is still valid."""
@@ -462,7 +471,7 @@ class PolymarketRadar:
                     # Send Telegram alert for critical urgency markets
                     if enriched_event.get('urgency_rate', 0) >= 90:
                         market_id = enriched_event.get('id')
-                        if market_id and market_id not in self._notified_critical_markets:
+                        if market_id and market_id not in self._notified_critical_markets and telegram_notifier:
                             logger.info(f"🚨 Critical market detected: {enriched_event.get('title')[:50]}...")
                             if telegram_notifier.send_critical_market_alert(enriched_event):
                                 self._notified_critical_markets.add(market_id)
