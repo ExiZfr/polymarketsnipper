@@ -180,6 +180,79 @@ function Settings({ token }) {
         );
     };
 
+    // Telegram Configuration Section
+    const renderTelegramConfig = () => {
+        const telegramToken = settings.find(s => s.key === 'TELEGRAM_BOT_TOKEN')?.value || '';
+        const telegramChatId = settings.find(s => s.key === 'TELEGRAM_CHAT_ID')?.value || '';
+
+        // Helper to update specific setting
+        const updateTelegramSetting = (key, value) => {
+            // Check if setting exists
+            const exists = settings.find(s => s.key === key);
+            if (exists) {
+                handleChange(key, value);
+            } else {
+                // Add new setting to state
+                setSettings(prev => [...prev, {
+                    key,
+                    value,
+                    category: 'system',
+                    description: key === 'TELEGRAM_BOT_TOKEN' ? 'Telegram Bot Token' : 'Telegram Chat ID'
+                }]);
+            }
+        };
+
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-2xl p-6 mb-6 shadow-xl"
+            >
+                <div className="flex items-center gap-3 mb-6 border-b border-blue-500/20 pb-4">
+                    <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121L7.99 13.98l-2.97-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.954z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Telegram Notifications</h2>
+                        <p className="text-sm text-textMuted">Configure alerts for critical markets and trade execution</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-white mb-2">Bot Token</label>
+                        <input
+                            type="password"
+                            value={telegramToken}
+                            onChange={(e) => updateTelegramSetting('TELEGRAM_BOT_TOKEN', e.target.value)}
+                            placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white placeholder-textMuted focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all font-mono text-sm"
+                        />
+                        <p className="text-xs text-textMuted mt-1">
+                            Create a bot with <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@BotFather</a>
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-white mb-2">Chat ID</label>
+                        <input
+                            type="text"
+                            value={telegramChatId}
+                            onChange={(e) => updateTelegramSetting('TELEGRAM_CHAT_ID', e.target.value)}
+                            placeholder="123456789"
+                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white placeholder-textMuted focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all font-mono text-sm"
+                        />
+                        <p className="text-xs text-textMuted mt-1">
+                            Get your ID from <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@userinfobot</a>
+                        </p>
+                    </div>
+                </div>
+            </motion.div>
+        );
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -237,6 +310,7 @@ function Settings({ token }) {
             </div>
 
             {/* Sections */}
+            {renderTelegramConfig()}
             {renderSection('API Keys', Key, 'api')}
             {renderSection('Trading Limits', Activity, 'trading')}
             {renderSection('System', Shield, 'system')}
