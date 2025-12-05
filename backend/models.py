@@ -36,3 +36,16 @@ class Log(Base):
     level = Column(String) # INFO, ERROR, WARNING
     message = Column(Text)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+class Trade(Base):
+    __tablename__ = "trades"
+    id = Column(Integer, primary_key=True, index=True)
+    market_id = Column(String, index=True) # Polymarket ID
+    market_title = Column(String)
+    side = Column(String) # BUY or SELL
+    outcome = Column(String) # YES or NO
+    amount = Column(Float)
+    price = Column(Float)
+    status = Column(String) # FILLED, PENDING, FAILED
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    trigger_event = Column(String, nullable=True) # What triggered this trade

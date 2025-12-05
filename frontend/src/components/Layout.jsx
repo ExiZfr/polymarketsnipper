@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Settings, Radio, LogOut, Activity, Zap, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Settings, Radio, LogOut, Activity, Zap, Menu, X, History } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -18,6 +18,7 @@ function Layout({ children, setToken }) {
     const navItems = [
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/markets', label: 'Markets Radar', icon: Radio },
+        { path: '/history', label: 'Trade History', icon: History },
         { path: '/settings', label: 'Settings', icon: Settings },
     ];
 

@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import dashboard, auth, settings, radar
+from routers import dashboard, auth, settings, radar, history
+from services.listener import listener_service
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -22,6 +23,17 @@ app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 app.include_router(settings.router, prefix="/settings", tags=["Settings"])
 app.include_router(radar.router)
+app.include_router(history.router)
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background services."""
+    listener_service.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background services."""
+    listener_service.stop()
 
 @app.get("/")
 def read_root():

@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Markets from './pages/Markets';
+import HistoryPage from './pages/History';
 import Layout from './components/Layout';
 
 function App() {
@@ -34,6 +35,10 @@ function App() {
                 <Route
                     path="/markets"
                     element={token ? <Layout setToken={setAuthToken}><Markets token={token} /></Layout> : <Navigate to="/login" />}
+                />
+                <Route
+                    path="/history"
+                    element={token ? <Layout setToken={setAuthToken}><HistoryPage token={token} /></Layout> : <Navigate to="/login" />}
                 />
                 <Route
                     path="/settings"
