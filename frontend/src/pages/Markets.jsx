@@ -479,7 +479,20 @@ function Markets({ token }) {
         const matchesCategory = selectedCategory === 'all' || market.category === selectedCategory;
         const matchesUrgency = selectedUrgency === 'all' || market.urgency === selectedUrgency;
 
-        return matchesSearch && matchesCategory && matchesUrgency;
+        // Urgency rate filter
+        let matchesUrgencyRate = true;
+        if (selectedUrgencyRate !== 'all') {
+            const rate = market.urgency_rate || 0;
+            switch (selectedUrgencyRate) {
+                case 'critical': matchesUrgencyRate = rate >= 90; break;
+                case 'high': matchesUrgencyRate = rate >= 70 && rate < 90; break;
+                case 'medium': matchesUrgencyRate = rate >= 40 && rate < 70; break;
+                case 'low': matchesUrgencyRate = rate < 40; break;
+            }
+        }
+
+
+        return matchesSearch && matchesCategory && matchesUrgency && matchesUrgencyRate;
     });
 
     const containerVariants = {
