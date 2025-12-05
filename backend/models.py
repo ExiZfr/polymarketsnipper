@@ -50,20 +50,6 @@ class Trade(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     trigger_event = Column(String, nullable=True) # What triggered this trade
 
-class Favorite(Base):
-    __tablename__ = "favorites"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    market_id = Column(String, index=True)  # Polymarket ID
-    market_title = Column(String)
-    market_url = Column(String, nullable=True)
-    snipe_score = Column(Float, nullable=True)
-    urgency_rate = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationship
-    user = relationship("User")
-
 class ActivitySnapshot(Base):
     """Track hourly activity stats for dashboard charts"""
     __tablename__ = "activity_snapshots"

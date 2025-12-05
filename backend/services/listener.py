@@ -6,7 +6,7 @@ from typing import List, Dict
 from ntscraper import Nitter
 import feedparser
 from database import SessionLocal
-from models import Log, Trade, Favorite
+from models import Log, Trade
 from services.radar import radar_service
 from datetime import datetime
 
@@ -81,60 +81,16 @@ class SocialListener:
                 self._log_system("ERROR", f"Listener loop error: {str(e)}")
                 time.sleep(5)  # Shorter error recovery
 
-    def _load_favorites(self):
-        """Load favorites from database."""
-        try:
-            db = SessionLocal()
-            favorites = db.query(Favorite).all()
-            db.close()
-            return favorites
-        except Exception as e:
-            logger.error(f"Failed to load favorites: {e}")
-            return []
-
     def _update_targets(self):
-        """Get active markets from Radar service and Favorites."""
+        """Get active markets from Radar service."""
         try:
-            # 1. Get all political events from Radar
+            # Get all political events
             events = radar_service.get_political_events(use_cache=True)
             
-            # 2. Get Favorites from database
-            favorites = self._load_favorites()
+            # Filter for active ones
+            self.targets = [e for e in events if e.get('days_remaining', 0) is not None and e.get('days_remaining', 0) >= 0]
             
-            # 3. Merge and prioritize
-            # Create a map of existing events for quick lookup
-            event_map = {e['id']: e for e in events}
-            
-            final_targets = []
-            
-            # Add favorites first (Priority)
-            for fav in favorites:
-                market_id = fav.market_id
-                if market_id in event_map:
-                    # Use the fresh data from radar if available
-                    market_data = event_map[market_id]
-                    market_data['is_favorite'] = True # Mark as favorite
-                    final_targets.append(market_data)
-                else:
-                    # If not in radar (maybe filtered out?), construct minimal target from favorite
-                    final_targets.append({
-                        'id': fav.market_id,
-                        'title': fav.market_title,
-                        'url': fav.market_url,
-                        'keywords': self._extract_keywords(fav.market_title),
-                        'is_favorite': True
-                    })
-            
-            # Add remaining radar events
-            favorite_ids = {f.market_id for f in favorites}
-            for event in events:
-                if event['id'] not in favorite_ids:
-                    if event.get('days_remaining', 0) is not None and event.get('days_remaining', 0) >= 0:
-                        final_targets.append(event)
-            
-            self.targets = final_targets
-            
-            self._log_system("INFO", f"🎯 Listener now tracking {len(self.targets)} active markets ({len(favorites)} favorites)")
+            self._log_system("INFO", f"🎯 Listener now tracking {len(self.targets)} active markets")
             logger.info(f"Listener tracking {len(self.targets)} active targets")
             
             # Reload global keywords every 10 cycles

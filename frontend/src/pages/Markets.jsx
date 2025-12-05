@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Filter, Radio, ExternalLink, DollarSign, Calendar, RefreshCw,
     MessageSquare, Mic, Megaphone, Users, AlertCircle, Flame, Clock, Target,
-    Zap, Activity, TrendingUp, HelpCircle, X, Info, Award, BarChart3, Bell, Sparkles, Star
+    Zap, Activity, TrendingUp, HelpCircle, X, Info, Award, BarChart3, Bell, Sparkles
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -492,9 +492,7 @@ function Markets({ token }) {
         }
 
 
-        const matchesFavorites = !showFavoritesOnly || favorites.includes(market.id);
-
-        return matchesSearch && matchesCategory && matchesUrgency && matchesUrgencyRate && matchesFavorites;
+        return matchesSearch && matchesCategory && matchesUrgency && matchesUrgencyRate;
     });
 
     const containerVariants = {
@@ -599,28 +597,12 @@ function Markets({ token }) {
                         onChange={(e) => setSelectedUrgencyRate(e.target.value)}
                         className="bg-background border border-border rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
                     >
+                        <option value="all">All Urgency Rates</option>
+                        <option value="critical">⚡ Critical (90-100%)</option>
+                        <option value="high">🔥 High (70-89%)</option>
+                        <option value="medium">⏰ Medium (40-69%)</option>
                         <option value="low">📅 Low (0-39%)</option>
                     </select>
-                </div>
-
-                {/* Favorites Toggle & Results Count */}
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                    <button
-                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                        className={twMerge(
-                            "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all text-sm font-medium",
-                            showFavoritesOnly
-                                ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500"
-                                : "bg-background border-border text-textMuted hover:text-white"
-                        )}
-                    >
-                        <Star className={twMerge("w-4 h-4", showFavoritesOnly && "fill-current")} />
-                        {showFavoritesOnly ? "Showing Favorites" : "Show Favorites"}
-                    </button>
-
-                    <div className="text-sm text-textMuted">
-                        Found <span className="text-white font-bold">{filteredMarkets.length}</span> markets
-                    </div>
                 </div>
 
                 {/* Results count */}
@@ -654,13 +636,7 @@ function Markets({ token }) {
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                     {filteredMarkets.map((market) => (
-                        <FlipCard
-                            key={market.id}
-                            event={market}
-                            variants={itemVariants}
-                            isFavorite={favorites.includes(market.id)}
-                            onToggleFavorite={(e) => toggleFavorite(e, market)}
-                        />
+                        <FlipCard key={market.id} event={market} variants={itemVariants} />
                     ))}
                 </motion.div>
             )}
@@ -668,7 +644,7 @@ function Markets({ token }) {
     );
 }
 
-function FlipCard({ event, variants, isFavorite, onToggleFavorite }) {
+function FlipCard({ event, variants }) {
     const [isFlipped, setIsFlipped] = useState(false);
     const Icon = CATEGORY_ICONS[event.category] || Radio;
     const categoryColor = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
@@ -715,21 +691,6 @@ function FlipCard({ event, variants, isFavorite, onToggleFavorite }) {
                             <Clock className="w-3 h-3" />
                             {urgencyRate}%
                         </div>
-
-                        {/* Favorite Button */}
-                        <button
-                            onClick={onToggleFavorite}
-                            className="absolute top-10 right-0 mt-1 mr-1 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-colors group/star border border-white/10"
-                        >
-                            <Star
-                                className={twMerge(
-                                    "w-4 h-4 transition-colors",
-                                    isFavorite
-                                        ? "text-yellow-500 fill-yellow-500"
-                                        : "text-white/70 group-hover/star:text-white"
-                                )}
-                            />
-                        </button>
 
                         {/* Market Image */}
                         {event.image ? (
