@@ -251,12 +251,17 @@ class PolymarketRadar:
         volume = event.get('volume', 0)
         days_remaining = event.get('days_remaining')
         
-        # Minimum score threshold - RAISED for better quality
-        if score < 0.35:  # Only markets with 35%+ snipability
+        # MAXIMUM QUALITY FILTERS - Only highly profitable markets
+        if score < 0.45:  # 45%+ snipability MINIMUM
             return False
         
-        # Minimum volume - RAISED for better liquidity
-        if volume < 2000:  # $2K minimum
+        # High volume required for liquidity
+        if volume < 5000:  # $5K minimum
+            return False
+        
+        # Require clear trigger (no vague markets)
+        trigger_clarity = event.get('score_breakdown', {}).get('trigger_clarity', 0)
+        if trigger_clarity < 50:  # Must have clear triggering event
             return False
         
         # Too far in future
@@ -368,7 +373,7 @@ class PolymarketRadar:
         
         # Search with each query
         for query in search_queries:
-            results = self.search_markets(query, limit=200)  # Increased to get more markets
+            results = self.search_markets(query, limit=500)  # Maximum API allows - scan everything
             logger.info(f"Query '{query}': found {len(results)} raw results")
             
             for event in results:
