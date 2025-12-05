@@ -31,30 +31,26 @@ import { twMerge } from 'tailwind-merge';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Mock data for the chart (replace with real history if available)
-const MOCK_CHART_DATA = Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    events: Math.floor(Math.random() * 50) + 10,
-    trades: Math.floor(Math.random() * 20),
-}));
-
 function Dashboard({ token, setToken }) {
     const [stats, setStats] = useState(null);
     const [logs, setLogs] = useState([]);
+    const [chartData, setChartData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('all'); // for logs
+    const [activeTab, setActiveTab] = useState('all');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const config = { headers: { Authorization: `Bearer ${token}` } };
-                const [statsRes, logsRes] = await Promise.all([
+                const [statsRes, logsRes, chartRes] = await Promise.all([
                     axios.get(`${API_URL}/dashboard/stats`, config),
-                    axios.get(`${API_URL}/dashboard/logs`, config)
+                    axios.get(`${API_URL}/dashboard/logs`, config),
+                    axios.get(`${API_URL}/dashboard/activity_chart?hours=24`, config)
                 ]);
 
                 setStats(statsRes.data);
                 setLogs(logsRes.data);
+                setChartData(chartRes.data);
                 setIsLoading(false);
             } catch (err) {
                 console.error(err);
@@ -125,9 +121,9 @@ function Dashboard({ token, setToken }) {
                     color="yellow"
                 />
                 <StatCard
-                    title="System Uptime"
-                    value="24h 12m"
-                    icon={Clock}
+                    title="Trades Today"
+                    value={stats?.trades_today || 0}
+                    icon={TrendingUp}
                     color="purple"
                 />
             </div>
@@ -141,17 +137,12 @@ function Dashboard({ token, setToken }) {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                             <Activity className="w-5 h-5 text-primary" />
-                            Activity Overview
+                            Activity Overview (Last 24h)
                         </h2>
-                        <select className="bg-background/50 border border-border/50 rounded-lg px-3 py-1 text-sm text-textMuted focus:outline-none focus:border-primary w-full md:w-auto">
-                            <option>Last 24 Hours</option>
-                            <option>Last 7 Days</option>
-                            <option>Last 30 Days</option>
-                        </select>
                     </div>
                     <div className="h-[250px] md:h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={MOCK_CHART_DATA}>
+                            <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -169,8 +160,8 @@ function Dashboard({ token, setToken }) {
                                     contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }}
                                     itemStyle={{ color: '#E5E7EB' }}
                                 />
-                                <Area type="monotone" dataKey="events" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorEvents)" />
-                                <Area type="monotone" dataKey="trades" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorTrades)" />
+                                <Area type="monotone" dataKey="events" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorEvents)" name="Events" />
+                                <Area type="monotone" dataKey="trades" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorTrades)" name="Trades" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>

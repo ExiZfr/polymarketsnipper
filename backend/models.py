@@ -49,3 +49,12 @@ class Trade(Base):
     status = Column(String) # FILLED, PENDING, FAILED
     timestamp = Column(DateTime, default=datetime.utcnow)
     trigger_event = Column(String, nullable=True) # What triggered this trade
+
+class ActivitySnapshot(Base):
+    """Track hourly activity stats for dashboard charts"""
+    __tablename__ = "activity_snapshots"
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    events_detected = Column(Integer, default=0)  # Markets from radar
+    trades_executed = Column(Integer, default=0)  # Trades completed
+    active_targets = Column(Integer, default=0)   # Active monitoring targets
