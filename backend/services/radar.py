@@ -458,6 +458,17 @@ class PolymarketRadar:
                 # Filter: Only keep snipable markets
                 if self._is_snipable(enriched_event):
                     all_events.append(enriched_event)
+                    
+                    # Send Telegram alert for critical urgency markets
+                    if enriched_event.get('urgency_rate', 0) >= 90:
+                        market_id = enriched_event.get('id')
+                        if market_id and market_id not in self._notified_critical_markets:
+                            logger.info(f"🚨 Critical market detected: {enriched_event.get('title')[:50]}...")
+                            if telegram_notifier.send_critical_market_alert(enriched_event):
+                                self._notified_critical_markets.add(market_id)
+                                logger.info(f"✅ Telegram alert sent for market {market_id}")
+                            else:
+                                logger.warning(f"⚠️ Failed to send Telegram alert for market {market_id}")
         
         # Sort by snipe score (highest first)
         all_events.sort(key=lambda x: x.get('snipe_score', 0), reverse=True)
