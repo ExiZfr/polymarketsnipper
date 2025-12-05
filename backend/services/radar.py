@@ -260,17 +260,17 @@ class PolymarketRadar:
         volume = event.get('volume', 0)
         days_remaining = event.get('days_remaining')
         
-        # MAXIMUM QUALITY FILTERS - Only highly profitable markets
-        if score < 0.45:  # 45%+ snipability MINIMUM
+        # RELAXED FILTERS - Show more markets
+        if score < 0.20:  # 45%+ snipability MINIMUM
             return False
         
         # High volume required for liquidity
-        if volume < 5000:  # $5K minimum
+        if volume < 500:  # $5K minimum
             return False
         
         # Require clear trigger (no vague markets)
         trigger_clarity = event.get('score_breakdown', {}).get('trigger_clarity', 0)
-        if trigger_clarity < 50:  # Must have clear triggering event
+        if trigger_clarity < 20:  # Must have clear triggering event
             return False
         
         # Too far in future
