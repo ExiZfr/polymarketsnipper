@@ -9,6 +9,53 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+@router.get("/events")
+async def get_political_events(
+    category: Optional[str] = Query(None, description="Filter by category: tweet, speech, announcement, etc."),
+    person: Optional[str] = Query(None, description="Filter by person: 'trump', 'biden', 'elon'"),
+    urgency: Optional[str] = Query(None, description="Filter by urgency: critical, high, medium, low"),
+    min_volume: Optional[float] = Query(None, description="Minimum volume filter"),
+    min_score: Optional[float] = Query(None, description="Minimum snipe score (0-1)"),
+    refresh: bool = Query(False, description="Force refresh cache"),
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get all snipable political events.
+    
+    Query Parameters:
+    - category: Filter by event type (tweet, speech, announcement, interview, etc.)
+    - person: Filter by person name
+    - urgency: Filter by urgency level (critical, high, medium, low)
+    - min_volume: Only return events with volume >= this value
+    - min_score: Only return events with snipe_score >= this value
+    - refresh: Force refresh the cache
+    """
+    try:
+        # Force refresh if requested
+        if refresh:
+            radar_service.clear_cache()
+        
+        # Get base events
+        if person:
+            events = radar_service.get_markets_by_person(person)
+        elif category:
+            events = radar_service.get_events_by_category(category)
+        elif urgency:
+            events = radar_service.get_urgent_events(urgency)
+        else:
+            events = radar_service.get_political_events(use_cache=not refresh)
+        
+        # Apply additional filters
+        if min_volume is not None:
+            events = [e for e in events if e.get('volume', 0) >= min_volume]
+        
+        if min_score is not None:
+            events = [e for e in events if e.get('snipe_score', 0) >= min_score]
+        
+        return events
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/markets")
 async def get_tweet_markets(
     person: Optional[str] = Query(None, description="Filter by person: 'trump' or 'elon'"),
@@ -17,7 +64,7 @@ async def get_tweet_markets(
     current_user: str = Depends(get_current_user)
 ):
     """
-    Get all active markets related to Trump or Elon tweets.
+    Legacy endpoint - Get tweet-only markets.
     
     Query Parameters:
     - person: Filter by 'trump' or 'elon'
@@ -32,6 +79,8 @@ async def get_tweet_markets(
         # Get markets
         if person:
             markets = radar_service.get_markets_by_person(person)
+            # Filter to tweets only
+            markets = [m for m in markets if m.get('category') == 'tweet']
         else:
             markets = radar_service.get_tweet_markets(use_cache=not refresh)
         
@@ -40,6 +89,43 @@ async def get_tweet_markets(
             markets = [m for m in markets if m.get('volume', 0) >= min_volume]
         
         return markets
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/stats")
+async def get_radar_stats(current_user: str = Depends(get_current_user)):
+    """
+    Get statistics about detected events.
+    """
+    try:
+        events = radar_service.get_political_events()
+        
+        # Count by category
+        categories = {}
+        urgencies = {}
+        persons = {}
+        
+        for event in events:
+            cat = event.get('category', 'other')
+            categories[cat] = categories.get(cat, 0) + 1
+            
+            urg = event.get('urgency', 'unknown')
+            urgencies[urg] = urgencies.get(urg, 0) + 1
+            
+            for person in event.get('persons', []):
+                persons[person] = persons.get(person, 0) + 1
+        
+        # Average snipe score
+        avg_score = sum(e.get('snipe_score', 0) for e in events) / len(events) if events else 0
+        
+        return {
+            "total_events": len(events),
+            "by_category": categories,
+            "by_urgency": urgencies,
+            "by_person": persons,
+            "avg_snipe_score": round(avg_score, 2),
+            "cache_valid": radar_service._is_cache_valid()
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
