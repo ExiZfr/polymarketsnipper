@@ -10,6 +10,12 @@ from models import Log, Trade
 from services.radar import radar_service
 from datetime import datetime
 
+try:
+    from services.telegram_notifier import telegram_notifier
+except ImportError:
+    logger.warning("⚠️ Telegram notifier not available")
+    telegram_notifier = None
+
 logger = logging.getLogger(__name__)
 
 # RSS News Feeds

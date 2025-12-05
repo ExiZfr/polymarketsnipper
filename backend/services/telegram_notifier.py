@@ -95,6 +95,72 @@ class TelegramNotifier:
 """
         
         return self.send_message(message.strip())
+    
+    def send_trade_alert(self, trade_data: Dict) -> bool:
+        """Send alert when a trade is executed"""
+        market_title = trade_data.get('market_title', 'Unknown Market')
+        side = trade_data.get('side', 'BUY').upper()
+        amount = trade_data.get('amount', 0)
+        price = trade_data.get('price', 0)
+        market_url = trade_data.get('market_url', '')
+        reason = trade_data.get('reason', 'Signal detected')
+        
+        # Emoji based on side
+        emoji = '🟢' if side == 'BUY' else '🔴'
+        
+        message = f"""
+{emoji} <b>TRADE EXECUTED</b> {emoji}
+
+📊 <b>Market:</b> {market_title[:100]}
+
+💰 <b>Side:</b> {side}
+💵 <b>Amount:</b> ${amount:.2f}
+🎯 <b>Price:</b> {price:.2f}%
+💡 <b>Reason:</b> {reason}
+
+🔗 <a href="{market_url}">View on Polymarket</a>
+
+✅ Trade successfully placed!
+"""
+        
+        return self.send_message(message.strip())
+    
+    def send_news_alert(self, news_data: Dict) -> bool:
+        """Send alert when relevant news/signal is detected"""
+        market_title = news_data.get('market_title', 'Unknown Market')
+        source_type = news_data.get('source_type', 'unknown').upper()
+        source_name = news_data.get('source_name', 'Unknown')
+        content = news_data.get('content', '')[:200]  # Limit to 200 chars
+        market_url = news_data.get('market_url', '')
+        keywords = news_data.get('keywords', [])
+        
+        # Emoji based on source
+        emoji_map = {
+            'TWITTER': '🐦',
+            'RSS': '📰',
+            'NEWS': '📢'
+        }
+        emoji = emoji_map.get(source_type, '🔔')
+        
+        keywords_str = ', '.join(keywords[:5]) if keywords else 'N/A'
+        
+        message = f"""
+{emoji} <b>NEWS SIGNAL DETECTED</b> {emoji}
+
+📊 <b>Market:</b> {market_title[:100]}
+
+📱 <b>Source:</b> {source_type} - {source_name}
+🔑 <b>Keywords:</b> {keywords_str}
+
+📝 <b>Content:</b>
+<i>{content}...</i>
+
+🔗 <a href="{market_url}">View Market</a>
+
+⚡ Preparing to execute trade...
+"""
+        
+        return self.send_message(message.strip())
 
 # Singleton instance
 telegram_notifier = TelegramNotifier()
