@@ -29,6 +29,8 @@ class SocialListener:
         self.last_tweet_ids = {}
         self.last_news_links = set()
         self.cycle_count = 0  # Track cycles for less frequent target updates
+        self.global_keywords = []  # High-value keywords from settings
+        self._load_global_keywords()
         
     def start(self):
         """Start the monitoring loop in a background thread."""
@@ -88,6 +90,10 @@ class SocialListener:
             
             self._log_system("INFO", f"🎯 Listener now tracking {len(self.targets)} active markets")
             logger.info(f"Listener tracking {len(self.targets)} active targets")
+            
+            # Reload global keywords every 10 cycles
+            if self.cycle_count % 10 == 0:
+                self._load_global_keywords()
         except Exception as e:
             logger.error(f"Failed to update targets: {e}")
             self._log_system("ERROR", f"Failed to update targets: {str(e)}")
@@ -192,9 +198,22 @@ class SocialListener:
         if not keywords:
             return
 
-        # Check if all keywords are present
+        # Check if all market keywords are present
         if all(kw in text_lower for kw in keywords):
             self._trigger_snipe(target, text, source_type, source_name)
+            return
+        
+        # ALSO check for global high-value keywords
+        # If any global keyword + person name matches, it's a signal
+        persons = target.get('persons', [])
+        for keyword in self.global_keywords:
+            if keyword in text_lower:
+                # Check if any person from market is mentioned
+                for person in persons:
+                    if person.lower() in text_lower:
+                        self._log_system("INFO", f"🔔 Global keyword '{keyword}' + '{person}' detected!")
+                        self._trigger_snipe(target, text, source_type, source_name)
+                        return
 
     def _extract_keywords(self, title: str) -> List[str]:
         """Extract potential trigger keywords from market title."""
