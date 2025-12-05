@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Settings, Radio, LogOut, Activity, Zap, Menu, X, History, Ear, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Settings, Radio, LogOut, Activity, Zap, Menu, X, History, Ear, Copy, ExternalLink } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -53,6 +53,7 @@ function Layout({ children, setToken }) {
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/markets', label: 'Markets Radar', icon: Radio },
         { path: '/listener', label: 'Social Listener', icon: Ear },
+        { path: '/copy-trading', label: 'Copy Trading', icon: Copy },
         { path: '/history', label: 'Trade History', icon: History },
         { path: '/settings', label: 'Settings', icon: Settings },
     ];

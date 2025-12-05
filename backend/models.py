@@ -89,3 +89,19 @@ class MarketFavorite(Base):
     priority_boost = Column(Float, default=1.5)  # Multiplier for listener priority
     created_at = Column(DateTime, default=datetime.utcnow)
     notes = Column(Text, nullable=True)  # User notes about why favorited
+
+class TrackedWallet(Base):
+    `"`"Track Polymarket wallets for copy trading`"`"
+    __tablename__ = 'tracked_wallets'
+    id = Column(Integer, primary_key=True, index=True)
+    address = Column(String(42), unique=True, index=True, nullable=False)
+    nickname = Column(String(100), nullable=True)
+    is_favorite = Column(Boolean, default=False, index=True)
+    is_copying = Column(Boolean, default=False, index=True)
+    total_profit = Column(Float, default=0.0)
+    win_rate = Column(Float, default=0.0)
+    total_trades = Column(Integer, default=0)
+    avatar_url = Column(Text, nullable=True)
+    last_synced = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

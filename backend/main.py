@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import dashboard, auth, settings, radar, history, control, favorites, telegram
+from routers import dashboard, auth, settings, radar, history, control, favorites, telegram, copy_trading
 from services.listener import listener_service
 
 # Create tables
@@ -27,6 +27,7 @@ app.include_router(history.router)
 app.include_router(control.router)
 app.include_router(favorites.router)
 app.include_router(telegram.router)
+app.include_router(copy_trading.router, prefix='/copy-trading', tags=['Copy Trading'])
 
 @app.on_event("startup")
 async def startup_event():
