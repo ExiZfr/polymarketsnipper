@@ -244,16 +244,6 @@ class PolymarketRadar:
             trigger_clarity * 0.30 +
             monitorability * 0.25 +
             reaction_speed * 0.20 +
-            urgency_score * 0.15 +
-            volume_score * 0.05 +
-            liquidity_score * 0.05
-        )
-        
-    def _get_urgency_level(self, end_date_str: Optional[str]) -> str:
-        """Get urgency level based on end date."""
-        if not end_date_str:
-            return 'unknown'
-        
         try:
             end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
             days_remaining = (end_date - datetime.now()).days
