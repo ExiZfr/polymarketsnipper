@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Shield, Key, Activity } from 'lucide-react';
+import { Save, Shield, Key, Activity, Rss, Twitter } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -13,11 +13,13 @@ function Settings({ token }) {
     // Mock initial settings if DB is empty
     const defaultSettings = [
         { key: 'POLYMARKET_API_KEY', value: '', category: 'api', description: 'Polymarket API Key' },
-        { key: 'TWITTER_API_KEY', value: '', category: 'api', description: 'X/Twitter API Key' },
+        { key: 'TWITTER_API_KEY', value: '', category: 'api', description: 'X/Twitter API Key (Optional)' },
         { key: 'TELEGRAM_BOT_TOKEN', value: '', category: 'api', description: 'Telegram Bot Token' },
         { key: 'MAX_DAILY_LOSS', value: '100', category: 'trading', description: 'Max Daily Loss ($)' },
         { key: 'MAX_POSITION_SIZE', value: '10', category: 'trading', description: 'Max Position Size ($)' },
         { key: 'LATENCY_TARGET_MS', value: '300', category: 'system', description: 'Target Latency (ms)' },
+        { key: 'RSS_FEEDS', value: 'https://news.google.com/rss, https://finance.yahoo.com/news/rssindex', category: 'listener', description: 'RSS Feeds (comma separated)' },
+        { key: 'TWITTER_HANDLES', value: 'realDonaldTrump, elonmusk, JoeBiden', category: 'listener', description: 'Twitter Handles (comma separated)' },
     ];
 
     useEffect(() => {
@@ -84,17 +86,26 @@ function Settings({ token }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {items.map((setting) => (
-                        <div key={setting.key}>
+                        <div key={setting.key} className={setting.key.includes('RSS') || setting.key.includes('HANDLES') ? "md:col-span-2" : ""}>
                             <label className="block text-sm font-medium text-textMuted mb-2">
                                 {setting.description}
                             </label>
-                            <input
-                                type={setting.key.includes('KEY') || setting.key.includes('TOKEN') ? 'password' : 'text'}
-                                value={setting.value}
-                                onChange={(e) => handleChange(setting.key, e.target.value)}
-                                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                                placeholder={`Enter ${setting.description}`}
-                            />
+                            {setting.key.includes('RSS') || setting.key.includes('HANDLES') ? (
+                                <textarea
+                                    value={setting.value}
+                                    onChange={(e) => handleChange(setting.key, e.target.value)}
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all min-h-[100px]"
+                                    placeholder={`Enter ${setting.description}`}
+                                />
+                            ) : (
+                                <input
+                                    type={setting.key.includes('KEY') || setting.key.includes('TOKEN') ? 'password' : 'text'}
+                                    value={setting.value}
+                                    onChange={(e) => handleChange(setting.key, e.target.value)}
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                                    placeholder={`Enter ${setting.description}`}
+                                />
+                            )}
                         </div>
                     ))}
                 </div>
@@ -121,6 +132,7 @@ function Settings({ token }) {
                 </button>
             </div>
 
+            {renderSection('Social Listener Configuration', Rss, 'listener')}
             {renderSection('API Configuration', Key, 'api')}
             {renderSection('Trading & Risk', Shield, 'trading')}
             {renderSection('System Parameters', Activity, 'system')}

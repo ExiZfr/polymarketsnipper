@@ -5,6 +5,7 @@ from models import Log, Market
 from routers.auth import get_current_user
 from services.radar import radar_service
 from datetime import datetime
+from typing import Optional
 
 router = APIRouter()
 
@@ -31,6 +32,16 @@ def get_stats(db: Session = Depends(get_db), current_user: str = Depends(get_cur
     }
 
 @router.get("/logs")
-def get_logs(limit: int = 50, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)):
-    logs = db.query(Log).order_by(Log.timestamp.desc()).limit(limit).all()
+def get_logs(
+    limit: int = 50, 
+    module: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    current_user: str = Depends(get_current_user)
+):
+    query = db.query(Log)
+    
+    if module:
+        query = query.filter(Log.module == module)
+        
+    logs = query.order_by(Log.timestamp.desc()).limit(limit).all()
     return logs
