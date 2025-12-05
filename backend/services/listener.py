@@ -1,21 +1,18 @@
 import logging
 import time
 import threading
-import feedparser
 import re
-from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict
 from ntscraper import Nitter
-from sqlalchemy.orm import Session
+import feedparser
 from database import SessionLocal
-from models import Log, Trade, Market
+from models import Log, Trade
 from services.radar import radar_service
+from datetime import datetime
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# RSS Feeds to monitor
+# RSS News Feeds
 RSS_FEEDS = [
     "https://news.google.com/rss/search?q=Trump+OR+Elon+Musk&hl=en-US&gl=US&ceid=US:en",
     "https://finance.yahoo.com/news/rssindex",
@@ -36,7 +33,6 @@ class SocialListener:
         """Start the monitoring loop in a background thread."""
         if self.is_running:
             return
-        
         self.is_running = True
         thread = threading.Thread(target=self._monitor_loop, daemon=True)
         thread.start()
@@ -97,15 +93,31 @@ class SocialListener:
         except Exception as e:
             logger.error(f"Failed to update targets: {e}")
             self._log_system("ERROR", f"Failed to update targets: {str(e)}")
+    
+    def _load_global_keywords(self):
+        """Load high-value keywords from settings database."""
+        try:
+            from models import Setting
+            db = SessionLocal()
+            
+            # Get keywords setting
+            setting = db.query(Setting).filter(Setting.key == "listener_keywords").first()
+            
+            if setting and setting.value:
+                # Parse comma-separated list
+                self.global_keywords = [kw.strip().lower() for kw in setting.value.split(',') if kw.strip()]
+                logger.info(f"📋 Loaded {len(self.global_keywords)} global keywords from settings")
+            else:
+                self.global_keywords = []
+                logger.warning("⚠️ No global keywords found in settings")
+            
+            db.close()
+        except Exception as e:
+            logger.error(f"Failed to load global keywords: {e}")
+            self.global_keywords = []
 
     def _check_twitter(self):
-        """Scrape tweets for target personalities."""
-        handles = {
-            'Trump': 'realDonaldTrump',
-            'Elon Musk': 'elonmusk',
-            'Biden': 'JoeBiden'
-        }
-        
+        """Check Twitter via Nitter for new tweets."""
         # Initialize scraper on first use
         if self.scraper is None:
             try:
@@ -113,43 +125,46 @@ class SocialListener:
                 self.scraper = Nitter(log_level=1, skip_instance_check=False)
                 self._log_system("INFO", "Nitter scraper initialized successfully")
             except Exception as e:
-                self._log_system("ERROR", f"Failed to initialize Nitter scraper: {str(e)}")
+                logger.error(f"Failed to initialize scraper: {e}")
                 return
         
+        # Extract unique Twitter handles from targets
+        handles = set()
         for target in self.targets:
             persons = target.get('persons', [])
             for person in persons:
-                handle = handles.get(person)
-                if not handle:
-                    continue
+                if 'trump' in person.lower():
+                    handles.add('realDonaldTrump')
+                elif 'elon' in person.lower() or 'musk' in person.lower():
+                    handles.add('elonmusk')
+                elif 'biden' in person.lower():
+                    handles.add('POTUS')
+        
+        for handle in handles:
+            try:
+                self._log_system("INFO", f"🔍 Scraping tweets from @{handle}...")
+                tweets = self.scraper.get_tweets(handle, mode='user', number=5)
                 
-                try:
-                    self._log_system("INFO", f"🔍 Scraping tweets from @{handle}...")
-                    tweets = self.scraper.get_tweets(handle, mode='user', number=5)
-                    
-                    if tweets and 'tweets' in tweets:
-                        self._log_system("INFO", f"✅ Found {len(tweets['tweets'])} recent tweets from @{handle}")
-                        for tweet in tweets['tweets']:
-                            tweet_id = tweet.get('link')
-                            if tweet_id in self.last_tweet_ids:
-                                continue
-                            
-                            self.last_tweet_ids[tweet_id] = time.time()
-                            text = tweet.get('text', '')
-                            
-                            self._log_system("INFO", f"Analyzing tweet: {text[:50]}...")
-                            # Check for match
+                if tweets and 'tweets' in tweets:
+                    self._log_system("INFO", f"✅ Found {len(tweets['tweets'])} recent tweets from @{handle}")
+                    for tweet in tweets['tweets']:
+                        tweet_id = tweet.get('link')
+                        if tweet_id in self.last_tweet_ids:
+                            continue
+                        
+                        self.last_tweet_ids[tweet_id] = True
+                        text = tweet.get('text', '')
+                        
+                        # Analyze against targets
+                        for target in self.targets:
                             self._analyze_content(text, "Twitter", f"@{handle}", target)
-                    else:
-                        self._log_system("WARNING", f"No tweets returned from @{handle}")
-                            
-                except Exception as e:
-                    logger.warning(f"Failed to scrape twitter for {handle}: {e}")
-                    self._log_system("WARNING", f"Twitter scraping failed for @{handle}: {str(e)}")
-
-        # Cleanup old IDs
-        current_time = time.time()
-        self.last_tweet_ids = {k:v for k,v in self.last_tweet_ids.items() if current_time - v < 86400}
+                
+            except Exception as e:
+                logger.warning(f"Failed to scrape @{handle}: {e}")
+        
+        # Keep dict size manageable
+        if len(self.last_tweet_ids) > 1000:
+            self.last_tweet_ids = dict(list(self.last_tweet_ids.items())[-500:])
 
     def _check_news(self):
         """Check RSS feeds."""
@@ -159,7 +174,6 @@ class SocialListener:
                 feed = feedparser.parse(feed_url)
                 
                 if not feed.entries:
-                    self._log_system("WARNING", f"No entries in RSS feed: {feed_url[:50]}")
                     continue
                     
                 self._log_system("INFO", f"📄 Found {len(feed.entries)} news articles")
@@ -170,8 +184,9 @@ class SocialListener:
                         continue
                     
                     self.last_news_links.add(link)
-                    title = entry.title
-                    summary = getattr(entry, 'summary', '')
+                    
+                    title = entry.get('title', '')
+                    summary = entry.get('summary', '')
                     content = f"{title} {summary}"
                     
                     self._log_system("INFO", f"Analyzing news: {title[:50]}...")
@@ -240,9 +255,9 @@ class SocialListener:
                 side="BUY",
                 outcome="YES",
                 amount=100.0,
-                price=0.50,
+                price=0.5,
                 status="FILLED",
-                trigger_event=f"{source_type}: {content[:100]}..."
+                trigger_event=f"{source_type}: {content[:200]}"
             )
             db.add(trade)
             db.commit()
@@ -261,7 +276,7 @@ class SocialListener:
             db.add(log)
             db.commit()
         except Exception as e:
-            logger.error(f"Failed to write log: {e}")
+            logger.error(f"Failed to log to database: {e}")
         finally:
             db.close()
 
