@@ -250,6 +250,19 @@ class SocialListener:
         logger.info(f"🎯 SNIPE TRIGGERED! Market: {target['title']} | Source: {source_name}")
         
         self._log_system("INFO", f"🎯 SNIPE SIGNAL DETECTED! Market: '{target['title'][:60]}...' matched in {source_type}")
+        
+        # Send Telegram alert for news detection
+        if telegram_notifier:
+            news_data = {
+                'market_title': target['title'],
+                'source_type': source_type,
+                'source_name': source_name,
+                'content': content,
+                'market_url': target.get('url', ''),
+                'keywords': target.get('keywords', [])
+            }
+            telegram_notifier.send_news_alert(news_data)
+        
         self._log_system("INFO", f"💰 Placing BUY order for '{target['title'][:50]}...'")
         
         # Record the "Trade" (Simulation)
@@ -267,6 +280,19 @@ class SocialListener:
             )
             db.add(trade)
             db.commit()
+            
+            # Send Telegram alert for trade execution
+            if telegram_notifier:
+                trade_data = {
+                    'market_title': target['title'],
+                    'side': 'BUY',
+                    'amount': 100.0,
+                    'price': 0.5,
+                    'market_url': target.get('url', ''),
+                    'reason': f"Signal from {source_type}: {source_name}"
+                }
+                telegram_notifier.send_trade_alert(trade_data)
+            
             self._log_system("INFO", f"✅ Trade #{trade.id} executed successfully on '{target['title'][:50]}...'")
         except Exception as e:
             logger.error(f"Failed to record trade: {e}")
