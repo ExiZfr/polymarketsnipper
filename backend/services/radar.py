@@ -251,12 +251,12 @@ class PolymarketRadar:
         volume = event.get('volume', 0)
         days_remaining = event.get('days_remaining')
         
-        # Minimum score threshold
-        if score < 0.30:  # Modéré
+        # Minimum score threshold - RAISED for better quality
+        if score < 0.35:  # Only markets with 35%+ snipability
             return False
         
-        # Minimum volume
-        if volume < 1000:
+        # Minimum volume - RAISED for better liquidity
+        if volume < 2000:  # $2K minimum
             return False
         
         # Too far in future
@@ -368,7 +368,7 @@ class PolymarketRadar:
         
         # Search with each query
         for query in search_queries:
-            results = self.search_markets(query, limit=50)
+            results = self.search_markets(query, limit=200)  # Increased to get more markets
             logger.info(f"Query '{query}': found {len(results)} raw results")
             
             for event in results:
