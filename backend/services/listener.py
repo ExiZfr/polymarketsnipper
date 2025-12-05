@@ -28,6 +28,7 @@ class SocialListener:
         self.targets = []
         self.last_tweet_ids = {}
         self.last_news_links = set()
+        self.cycle_count = 0  # Track cycles for less frequent target updates
         
     def start(self):
         """Start the monitoring loop in a background thread."""
