@@ -576,8 +576,8 @@ function Markets({ token }) {
                     />
                 </div>
 
-                {/* Category, Urgency & Urgency Rate Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Category & Urgency Rate Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
@@ -590,18 +590,6 @@ function Markets({ token }) {
                         <option value="interview">👥 Interviews</option>
                         <option value="statement">⚠️ Statements</option>
                         <option value="action">🎯 Actions</option>
-                    </select>
-
-                    <select
-                        value={selectedUrgency}
-                        onChange={(e) => setSelectedUrgency(e.target.value)}
-                        className="bg-background border border-border rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                    >
-                        <option value="all">All Urgency Levels</option>
-                        <option value="critical">🔴 Critical</option>
-                        <option value="high">🟠 High</option>
-                        <option value="medium">🟡 Medium</option>
-                        <option value="low">🟢 Low</option>
                     </select>
 
                     <select
