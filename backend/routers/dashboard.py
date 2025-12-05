@@ -3,19 +3,31 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Log, Market
 from routers.auth import get_current_user
+from services.radar import radar_service
+from datetime import datetime
 
 router = APIRouter()
 
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)):
-    market_count = db.query(Market).count()
-    active_markets = db.query(Market).filter(Market.status == "active").count()
+    # Get real stats from radar service
+    events = radar_service.get_political_events()
+    active_events = [e for e in events if e.get('days_remaining', 0) is not None and e.get('days_remaining', 0) >= 0]
+    
+    # Calculate total volume tracked
+    total_volume = sum(e.get('volume', 0) for e in events)
+    
+    # Determine system status based on cache validity
+    radar_status = "ON" if radar_service._is_cache_valid() else "SCANNING"
+    
     return {
-        "radar_status": "ON",
-        "listener_status": "ON",
-        "executor_status": "OFF",
-        "total_markets": market_count,
-        "active_markets": active_markets
+        "radar_status": radar_status,
+        "listener_status": "ON", # Placeholder for now
+        "executor_status": "OFF", # Placeholder for now
+        "total_markets": len(events),
+        "active_markets": len(active_events),
+        "total_volume": total_volume,
+        "last_updated": datetime.now().isoformat()
     }
 
 @router.get("/logs")

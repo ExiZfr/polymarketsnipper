@@ -13,7 +13,9 @@ import {
     AlertCircle,
     CheckCircle2,
     TrendingUp,
-    Clock
+    Clock,
+    DollarSign,
+    Target
 } from 'lucide-react';
 import {
     AreaChart,
@@ -63,7 +65,7 @@ function Dashboard({ token, setToken }) {
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 2000); // Faster polling for "live" feel
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
     }, [token, setToken]);
 
@@ -90,39 +92,37 @@ function Dashboard({ token, setToken }) {
             animate="visible"
         >
             {/* Header Section */}
-            <header className="flex justify-between items-end">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-1">Command Center</h1>
-                    <p className="text-textMuted">Real-time monitoring and control system</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Command Center</h1>
+                    <p className="text-textMuted text-sm md:text-base">Real-time monitoring and control system</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-textMuted bg-surface/50 px-3 py-1.5 rounded-full border border-border/50">
+                <div className="flex items-center gap-2 text-xs md:text-sm text-textMuted bg-surface/50 px-3 py-1.5 rounded-full border border-border/50">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     System Online
                 </div>
             </header>
 
             {/* Top Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 <StatCard
-                    title="Active Markets"
+                    title="Active Events"
                     value={stats?.active_markets || 0}
-                    icon={Activity}
-                    trend="+12%"
+                    icon={Target}
+                    trend={stats?.total_markets ? `${stats.total_markets} total` : null}
                     color="blue"
                 />
                 <StatCard
-                    title="Events Detected"
-                    value="1,234"
-                    icon={Zap}
-                    trend="+5%"
-                    color="yellow"
+                    title="Volume Tracked"
+                    value={stats?.total_volume ? `$${(stats.total_volume / 1000000).toFixed(1)}M` : '$0'}
+                    icon={DollarSign}
+                    color="green"
                 />
                 <StatCard
-                    title="Trades Executed"
-                    value="89"
-                    icon={TrendingUp}
-                    trend="+2.4%"
-                    color="green"
+                    title="Events Detected"
+                    value={stats?.total_markets || 0}
+                    icon={Zap}
+                    color="yellow"
                 />
                 <StatCard
                     title="System Uptime"
@@ -136,20 +136,20 @@ function Dashboard({ token, setToken }) {
                 {/* Main Chart Section */}
                 <motion.div
                     variants={itemVariants}
-                    className="lg:col-span-2 bg-surface/40 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-xl"
+                    className="lg:col-span-2 bg-surface/40 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6 shadow-xl"
                 >
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                             <Activity className="w-5 h-5 text-primary" />
                             Activity Overview
                         </h2>
-                        <select className="bg-background/50 border border-border/50 rounded-lg px-3 py-1 text-sm text-textMuted focus:outline-none focus:border-primary">
+                        <select className="bg-background/50 border border-border/50 rounded-lg px-3 py-1 text-sm text-textMuted focus:outline-none focus:border-primary w-full md:w-auto">
                             <option>Last 24 Hours</option>
                             <option>Last 7 Days</option>
                             <option>Last 30 Days</option>
                         </select>
                     </div>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[250px] md:h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={MOCK_CHART_DATA}>
                                 <defs>
@@ -163,8 +163,8 @@ function Dashboard({ token, setToken }) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                <XAxis dataKey="time" stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#9CA3AF" fontSize={12} tickLine={false} axisLine={false} />
+                                <XAxis dataKey="time" stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
                                 <Tooltip
                                     contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }}
                                     itemStyle={{ color: '#E5E7EB' }}
@@ -180,19 +180,19 @@ function Dashboard({ token, setToken }) {
                 <div className="space-y-4">
                     <ModuleCard
                         title="Market Radar"
-                        status={stats?.radar_status}
+                        status={stats?.radar_status || 'OFF'}
                         icon={Radio}
                         description="Scanning Polymarket API for new opportunities"
                     />
                     <ModuleCard
                         title="Social Listener"
-                        status={stats?.listener_status}
+                        status={stats?.listener_status || 'OFF'}
                         icon={Ear}
                         description="Monitoring Twitter feeds for keywords"
                     />
                     <ModuleCard
                         title="Trade Executor"
-                        status={stats?.executor_status}
+                        status={stats?.executor_status || 'OFF'}
                         icon={Zap}
                         description="Ready to execute orders with <300ms latency"
                     />
@@ -204,18 +204,18 @@ function Dashboard({ token, setToken }) {
                 variants={itemVariants}
                 className="bg-black/40 backdrop-blur-md border border-border/50 rounded-2xl overflow-hidden shadow-xl"
             >
-                <div className="flex items-center justify-between p-4 border-b border-border/50 bg-surface/30">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border-b border-border/50 bg-surface/30 gap-4">
                     <div className="flex items-center gap-2">
                         <Terminal className="w-5 h-5 text-textMuted" />
                         <h2 className="font-mono text-sm font-bold text-textMuted uppercase tracking-wider">System Logs</h2>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                         {['all', 'info', 'warning', 'error'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={twMerge(
-                                    "px-3 py-1 rounded-md text-xs font-medium transition-colors uppercase",
+                                    "px-3 py-1 rounded-md text-xs font-medium transition-colors uppercase whitespace-nowrap",
                                     activeTab === tab
                                         ? "bg-primary/20 text-primary border border-primary/30"
                                         : "text-textMuted hover:text-white hover:bg-white/5"
@@ -239,23 +239,28 @@ function Dashboard({ token, setToken }) {
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0 }}
-                                        className="flex items-start gap-3 group hover:bg-white/5 p-1 rounded"
+                                        className="flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-3 group hover:bg-white/5 p-2 rounded border-b border-white/5 md:border-none"
                                     >
-                                        <span className="text-gray-500 whitespace-nowrap">
-                                            {new Date(log.timestamp).toLocaleTimeString()}
-                                        </span>
-                                        <span className={twMerge(
-                                            "font-bold px-1.5 rounded text-[10px] uppercase w-16 text-center",
-                                            log.level === 'ERROR' ? "bg-red-500/20 text-red-400" :
-                                                log.level === 'WARNING' ? "bg-yellow-500/20 text-yellow-400" :
-                                                    "bg-blue-500/20 text-blue-400"
-                                        )}>
-                                            {log.level}
-                                        </span>
-                                        <span className="text-purple-400 font-semibold w-24 truncate">
+                                        <div className="flex items-center gap-2 w-full md:w-auto">
+                                            <span className="text-gray-500 whitespace-nowrap text-[10px] md:text-xs">
+                                                {new Date(log.timestamp).toLocaleTimeString()}
+                                            </span>
+                                            <span className={twMerge(
+                                                "font-bold px-1.5 rounded text-[10px] uppercase w-16 text-center",
+                                                log.level === 'ERROR' ? "bg-red-500/20 text-red-400" :
+                                                    log.level === 'WARNING' ? "bg-yellow-500/20 text-yellow-400" :
+                                                        "bg-blue-500/20 text-blue-400"
+                                            )}>
+                                                {log.level}
+                                            </span>
+                                            <span className="text-purple-400 font-semibold w-24 truncate md:hidden">
+                                                [{log.module}]
+                                            </span>
+                                        </div>
+                                        <span className="text-purple-400 font-semibold w-24 truncate hidden md:block">
                                             [{log.module}]
                                         </span>
-                                        <span className="text-gray-300 group-hover:text-white transition-colors">
+                                        <span className="text-gray-300 group-hover:text-white transition-colors break-all">
                                             {log.message}
                                         </span>
                                     </motion.div>
@@ -279,26 +284,27 @@ function StatCard({ title, value, icon: Icon, trend, color }) {
     return (
         <motion.div
             variants={{ hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } }}
-            className="bg-surface/40 backdrop-blur-md border border-border/50 rounded-2xl p-5 shadow-lg hover:border-primary/30 transition-colors group"
+            className="bg-surface/40 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-5 shadow-lg hover:border-primary/30 transition-colors group"
         >
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-3 md:mb-4">
                 <div className={twMerge("p-2 rounded-lg", colorMap[color])}>
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
                 {trend && (
-                    <span className="text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
+                    <span className="text-[10px] md:text-xs font-medium text-green-400 bg-green-400/10 px-2 py-1 rounded-full">
                         {trend}
                     </span>
                 )}
             </div>
-            <h3 className="text-textMuted text-sm font-medium mb-1">{title}</h3>
-            <p className="text-2xl font-bold text-white group-hover:text-primary transition-colors">{value}</p>
+            <h3 className="text-textMuted text-xs md:text-sm font-medium mb-1">{title}</h3>
+            <p className="text-xl md:text-2xl font-bold text-white group-hover:text-primary transition-colors truncate">{value}</p>
         </motion.div>
     );
 }
 
 function ModuleCard({ title, status, icon: Icon, description }) {
-    const isRunning = status === 'running' || status === 'active';
+    const isRunning = status === 'ON' || status === 'SCANNING';
+    const isScanning = status === 'SCANNING';
 
     return (
         <motion.div
@@ -322,14 +328,14 @@ function ModuleCard({ title, status, icon: Icon, description }) {
                         <h3 className="font-bold text-white">{title}</h3>
                         <div className="flex items-center gap-1.5 mt-1">
                             <span className={twMerge(
-                                "w-1.5 h-1.5 rounded-full animate-pulse",
-                                isRunning ? "bg-green-500" : "bg-red-500"
+                                "w-1.5 h-1.5 rounded-full",
+                                isScanning ? "animate-ping bg-yellow-500" : isRunning ? "animate-pulse bg-green-500" : "bg-red-500"
                             )} />
                             <span className={twMerge(
                                 "text-xs font-medium uppercase",
                                 isRunning ? "text-green-400" : "text-red-400"
                             )}>
-                                {status || 'Unknown'}
+                                {status}
                             </span>
                         </div>
                     </div>
