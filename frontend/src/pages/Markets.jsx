@@ -213,13 +213,33 @@ function EventCard({ event, variants }) {
             className="group bg-surface border border-border hover:border-primary/50 rounded-2xl p-5 transition-all hover:shadow-lg hover:shadow-primary/5 flex flex-col h-full relative overflow-hidden"
         >
             {/* Snipe Score Indicator */}
-            <div className="absolute top-0 right-0 px-3 py-1 bg-primary/20 text-primary rounded-bl-2xl rounded-tr-2xl text-xs font-bold flex items-center gap-1">
+            <div className="absolute top-0 right-0 px-3 py-1 bg-primary/20 text-primary rounded-bl-2xl rounded-tr-2xl text-xs font-bold flex items-center gap-1 z-10">
                 <Flame className="w-3 h-3" />
                 {(event.snipe_score * 100).toFixed(0)}%
             </div>
 
+            {/* Market Image */}
+            {event.image ? (
+                <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-surfaceHighlight">
+                    <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                            // Fallback if image fails to load
+                            e.target.style.display = 'none';
+                            e.target.parentElement.classList.add('bg-gradient-to-br', 'from-primary/20', 'to-accent/20');
+                        }}
+                    />
+                </div>
+            ) : (
+                <div className="w-full h-32 rounded-xl mb-4 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                    <Radio className="w-12 h-12 text-primary/30" />
+                </div>
+            )}
+
             {/* Header with Category Icon */}
-            <div className="flex justify-between items-start mb-4 mt-6">
+            <div className="flex justify-between items-start mb-4">
                 <div className={twMerge("p-2 rounded-lg border", categoryColor)}>
                     <Icon className="w-5 h-5" />
                 </div>
