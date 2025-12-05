@@ -249,40 +249,6 @@ class PolymarketRadar:
             liquidity_score * 0.05
         )
         
-        return round(snipe_score, 2)
-
-    def _is_snipable(self, event: Dict) -> bool:
-        """
-        Determine if a market should be displayed.
-        Filters out non-snipable markets.
-        """
-        score = event.get('snipe_score', 0)
-        volume = event.get('volume', 0)
-        days_remaining = event.get('days_remaining')
-        
-        # RELAXED FILTERS - Show more markets
-        if score < 0.20:  # 45%+ snipability MINIMUM
-            return False
-        
-        # High volume required for liquidity
-        if volume < 500:  # $5K minimum
-            return False
-        
-        # Require clear trigger (no vague markets)
-        trigger_clarity = event.get('score_breakdown', {}).get('trigger_clarity', 0)
-        if trigger_clarity < 20:  # Must have clear triggering event
-            return False
-        
-        # Too far in future
-        if days_remaining and days_remaining > 120:
-            return False
-        
-        # Expired
-        if days_remaining is not None and days_remaining < 0:
-            return False
-        
-        return True
-
     def _get_urgency_level(self, end_date_str: Optional[str]) -> str:
         """Get urgency level based on end date."""
         if not end_date_str:
