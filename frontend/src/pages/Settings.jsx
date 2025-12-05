@@ -1,16 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Shield, Key, Activity, Rss, Twitter } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Save, Shield, Key, Activity, Rss, Twitter, Tag, CheckCircle2, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// Beautiful Toast Notification Component
+function Toast({ message, type = 'success', onClose }) {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed top-4 right-4 z-50 max-w-md"
+        >
+            <div className={`bg-gradient-to-r ${type === 'success' ? 'from-green-500 to-emerald-600' : 'from-red-500 to-rose-600'
+                } text-white rounded-2xl shadow-2xl p-4 border border-white/20 backdrop-blur-xl flex items-center gap-3`}>
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
+                    className="flex-shrink-0"
+                >
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                </motion.div>
+                <div className="flex-1">
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="font-semibold"
+                    >
+                        {type === 'success' ? '✨ Success!' : '❌ Error'}
+                    </motion.p>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="text-sm opacity-90"
+                    >
+                        {message}
+                    </motion.p>
+                </div>
+                <button
+                    onClick={onClose}
+                    className="flex-shrink-0 hover:bg-white/20 rounded-lg p-1 transition-colors"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+        </motion.div>
+    );
+}
 
 function Settings({ token }) {
     const [settings, setSettings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState(null);
 
-    // Mock initial settings if DB is empty
+    // Default settings including keywords
     const defaultSettings = [
         { key: 'POLYMARKET_API_KEY', value: '', category: 'api', description: 'Polymarket API Key' },
         { key: 'TWITTER_API_KEY', value: '', category: 'api', description: 'X/Twitter API Key (Optional)' },
@@ -20,6 +77,12 @@ function Settings({ token }) {
         { key: 'LATENCY_TARGET_MS', value: '300', category: 'system', description: 'Target Latency (ms)' },
         { key: 'RSS_FEEDS', value: 'https://news.google.com/rss, https://finance.yahoo.com/news/rssindex', category: 'listener', description: 'RSS Feeds (comma separated)' },
         { key: 'TWITTER_HANDLES', value: 'realDonaldTrump, elonmusk, JoeBiden', category: 'listener', description: 'Twitter Handles (comma separated)' },
+        {
+            key: 'listener_keywords',
+            value: 'spacex,tesla,nvidia,apple,microsoft,google,meta,amazon,openai,anthropic,nasa,launch,rocket,mars,moon,bitcoin,ethereum,crypto,btc,eth,blockchain,nft,coinbase,binance,sec,trump,biden,elon,musk,desantis,harris,obama,putin,election,debate,rally,impeach,resign,congress,senate,fed,interest rate,inflation,recession,gdp,unemployment,stock market,dow,nasdaq,sp500,announce,tweet,confirm,deny,appoint,fire,acquire,merger,ipo,war,invasion,ceasefire,nuclear,sanctions,ai,chatgpt,cure,vaccine,pandemic',
+            category: 'listener',
+            description: 'High-value keywords for signal detection (comma separated)'
+        },
     ];
 
     useEffect(() => {
@@ -31,7 +94,6 @@ function Settings({ token }) {
             const res = await axios.get(`${API_URL}/settings/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Merge defaults with DB results
             const dbSettings = res.data;
             const merged = defaultSettings.map(def => {
                 const found = dbSettings.find(s => s.key === def.key);
@@ -40,6 +102,7 @@ function Settings({ token }) {
             setSettings(merged);
         } catch (err) {
             console.error(err);
+            setSettings(defaultSettings);
         } finally {
             setLoading(false);
         }
@@ -55,11 +118,10 @@ function Settings({ token }) {
             await axios.post(`${API_URL}/settings/bulk`, settings, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Show success toast (mock)
-            alert('Settings saved successfully!');
+            setToast({ message: 'All settings saved successfully!', type: 'success' });
         } catch (err) {
             console.error(err);
-            alert('Failed to save settings.');
+            setToast({ message: 'Failed to save settings. Please try again.', type: 'error' });
         } finally {
             setSaving(false);
         }
@@ -78,33 +140,38 @@ function Settings({ token }) {
                 className="bg-surface border border-border rounded-2xl p-6 mb-6 shadow-xl"
             >
                 <div className="flex items-center gap-3 mb-6 border-b border-border/50 pb-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                        <Icon className="w-5 h-5 text-primary" />
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                        <Icon className="w-5 h-5" />
                     </div>
-                    <h2 className="text-lg font-bold text-white">{title}</h2>
+                    <h2 className="text-xl font-bold text-white">{title}</h2>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {items.map((setting) => (
-                        <div key={setting.key} className={setting.key.includes('RSS') || setting.key.includes('HANDLES') ? "md:col-span-2" : ""}>
-                            <label className="block text-sm font-medium text-textMuted mb-2">
+                <div className="space-y-4">
+                    {items.map(setting => (
+                        <div key={setting.key} className="group">
+                            <label className="block text-sm font-medium text-textMuted mb-2 group-hover:text-white transition-colors">
                                 {setting.description}
                             </label>
-                            {setting.key.includes('RSS') || setting.key.includes('HANDLES') ? (
+                            {category === 'listener' && (setting.key === 'RSS_FEEDS' || setting.key === 'TWITTER_HANDLES' || setting.key === 'listener_keywords') ? (
                                 <textarea
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white placeholder-textMuted focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all resize-none font-mono text-sm"
+                                    rows={setting.key === 'listener_keywords' ? 8 : 3}
                                     value={setting.value}
                                     onChange={(e) => handleChange(setting.key, e.target.value)}
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all min-h-[100px]"
-                                    placeholder={`Enter ${setting.description}`}
+                                    placeholder={setting.key === 'listener_keywords' ? 'bitcoin, ethereum, spacex, ...' : setting.description}
                                 />
                             ) : (
                                 <input
                                     type={setting.key.includes('KEY') || setting.key.includes('TOKEN') ? 'password' : 'text'}
+                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white placeholder-textMuted focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
                                     value={setting.value}
                                     onChange={(e) => handleChange(setting.key, e.target.value)}
-                                    className="w-full bg-background border border-border rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                                    placeholder={`Enter ${setting.description}`}
+                                    placeholder={setting.description}
                                 />
+                            )}
+                            {setting.key === 'listener_keywords' && (
+                                <p className="mt-2 text-xs text-textMuted">
+                                    💡 {setting.value.split(',').length} keywords configured. The listener will monitor for these terms in all sources.
+                                </p>
                             )}
                         </div>
                     ))}
@@ -113,29 +180,67 @@ function Settings({ token }) {
         );
     };
 
-    if (loading) return <div className="text-center p-10 text-textMuted">Loading settings...</div>;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full"
+                />
+            </div>
+        );
+    }
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+            {/* Toast Notifications */}
+            <AnimatePresence>
+                {toast && (
+                    <Toast
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => setToast(null)}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Header */}
+            <div className="flex justify-between items-end mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-                    <p className="text-textMuted">Manage your bot configuration and risk parameters.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Settings</h1>
+                    <p className="text-textMuted text-sm md:text-base">Configure your bot parameters and API keys</p>
                 </div>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={handleSave}
                     disabled={saving}
-                    className="flex items-center gap-2 bg-primary hover:bg-primaryHover text-white px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-primary/25"
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-semibold shadow-lg hover:shadow-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <Save className="w-5 h-5" />
-                    {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+                    {saving ? (
+                        <>
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                            />
+                            Saving...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-5 h-5" />
+                            Save All
+                        </>
+                    )}
+                </motion.button>
             </div>
 
-            {renderSection('Social Listener Configuration', Rss, 'listener')}
-            {renderSection('API Configuration', Key, 'api')}
-            {renderSection('Trading & Risk', Shield, 'trading')}
-            {renderSection('System Parameters', Activity, 'system')}
+            {/* Sections */}
+            {renderSection('API Keys', Key, 'api')}
+            {renderSection('Trading Limits', Activity, 'trading')}
+            {renderSection('System', Shield, 'system')}
+            {renderSection('Listener Configuration', Tag, 'listener')}
         </div>
     );
 }
