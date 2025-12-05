@@ -33,6 +33,7 @@ class SocialListener:
         self.last_news_links = set()
         self.cycle_count = 0  # Track cycles for less frequent target updates
         self.global_keywords = []  # High-value keywords from settings
+        self.favorites = set()  # Set of favorited market IDs
         self._load_global_keywords()
         
     def start(self):
@@ -90,8 +91,41 @@ class SocialListener:
             # Filter for active ones
             self.targets = [e for e in events if e.get('days_remaining', 0) is not None and e.get('days_remaining', 0) >= 0]
             
-            self._log_system("INFO", f"🎯 Listener now tracking {len(self.targets)} active markets")
-            logger.info(f"Listener tracking {len(self.targets)} active targets")
+            # Load favorites from database
+            from models import MarketFavorite
+            db = SessionLocal()
+            try:
+                favorites = db.query(MarketFavorite).all()
+                self.favorites = {f.market_id for f in favorites}
+                
+                # Mark favorited targets and apply priority boost
+                for target in self.targets:
+                    if target.get('id') in self.favorites:
+                        target['is_favorite'] = True
+                        target['priority_boost'] = 1.5
+                    else:
+                        target['is_favorite'] = False
+                        target['priority_boost'] = 1.0
+                
+                # Sort targets: favorites first
+                self.targets.sort(key=lambda x: (not x.get('is_favorite', False), -x.get('snipe_score', 0)))
+                
+                # Check for critical markets and send alerts
+                if telegram_notifier:
+                    telegram_notifier.reload_config()
+                    for target in self.targets:
+                        urgency_rate = target.get('urgency_rate', 0)
+                        # Send alert for critical markets (90%+ urgency) - only once
+                        if urgency_rate >= 90 and not target.get('_notified_critical'):
+                            telegram_notifier.send_critical_market_alert(target)
+                            target['_notified_critical'] = True  # Mark as notified
+                            logger.info(f"?? Sent critical market alert: {target.get('title', 'Unknown')[:60]}")
+                
+                favorites_count = len([t for t in self.targets if t.get('is_favorite')])
+                self._log_system("INFO", f"🎯 Listener tracking {len(self.targets)} markets ({favorites_count} ⭐ favorites)")
+                logger.info(f"Listener tracking {len(self.targets)} targets, {favorites_count} favorites, {critical_count} critical")
+            finally:
+                db.close()
             
             # Reload global keywords every 10 cycles
             if self.cycle_count % 10 == 0:
@@ -219,10 +253,20 @@ class SocialListener:
         if not keywords:
             return
 
-        # Check if all market keywords are present
-        if all(kw in text_lower for kw in keywords):
-            self._trigger_snipe(target, text, source_type, source_name)
-            return
+        # Check if this is a favorited market
+        is_favorite = target.get('is_favorite', False)
+        
+        if is_favorite:
+            # For favorites: trigger if ANY keyword is found (more aggressive)
+            if any(kw in text_lower for kw in keywords):
+                self._log_system("INFO", f"⭐ Favorite market triggered: {target.get('title', 'Unknown')}")
+                self._trigger_snipe(target, text, source_type, source_name)
+                return
+        else:
+            # For regular markets: require ALL keywords (current behavior)
+            if all(kw in text_lower for kw in keywords):
+                self._trigger_snipe(target, text, source_type, source_name)
+                return
         
         # ALSO check for global high-value keywords
         # If any global keyword + person name matches, it's a signal

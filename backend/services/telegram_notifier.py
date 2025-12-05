@@ -19,6 +19,45 @@ class TelegramNotifier:
         else:
             logger.info("✅ Telegram notifications enabled")
     
+    def reload_config(self):
+        """Reload configuration from database"""
+        try:
+            from database import SessionLocal
+            from models import Setting
+            
+            db = SessionLocal()
+            try:
+                token_setting = db.query(Setting).filter(Setting.key == 'TELEGRAM_BOT_TOKEN').first()
+                chat_id_setting = db.query(Setting).filter(Setting.key == 'TELEGRAM_CHAT_ID').first()
+                
+                self.bot_token = token_setting.value if token_setting else ''
+                self.chat_id = chat_id_setting.value if chat_id_setting else ''
+                self.enabled = bool(self.bot_token and self.chat_id)
+                
+                logger.info(f"✅ Telegram config reloaded: enabled={self.enabled}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Failed to reload Telegram config: {e}")
+    
+    def test_connection(self) -> dict:
+        """Test Telegram bot connection and return status"""
+        if not self.bot_token or not self.chat_id:
+            return {"success": False, "message": "Missing bot token or chat ID"}
+        
+        try:
+            # Send test message
+            message = "✅ <b>Bot Connection Test</b>\n\nYour Polymarket bot is successfully connected to Telegram!"
+            result = self.send_message(message)
+            
+            if result:
+                return {"success": True, "message": "Test message sent successfully! Check your Telegram."}
+            else:
+                return {"success": False, "message": "Failed to send test message. Check your credentials."}
+        except Exception as e:
+            return {"success": False, "message": f"Error: {str(e)}"}
+    
+    
     def send_message(self, message: str, parse_mode: str = 'HTML') -> bool:
         """Send a message via Telegram bot"""
         if not self.enabled:
@@ -55,23 +94,30 @@ class TelegramNotifier:
         url = market.get('url', '')
         days_remaining = market.get('days_remaining', 'N/A')
         volume = market.get('volume', 0)
+        liquidity = market.get('liquidity', 0)
         category = market.get('category', 'unknown').capitalize()
         
-        # Format message with HTML
+        # Beautiful formatted message
         message = f"""
-🚨 <b>CRITICAL MARKET ALERT</b> 🚨
+🚨🚨🚨 <b>ALERTE MARCHÉ CRITIQUE</b> 🚨🚨🚨
 
-📊 <b>Market:</b> {title[:100]}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 <b>Marché</b>
+<i>{title[:150]}</i>
 
-⚡ <b>Urgency Rate:</b> {urgency_rate}% (CRITICAL!)
-🔥 <b>Snipability:</b> {snipe_score:.0f}%
-⏰ <b>Time Left:</b> {days_remaining} days
-💰 <b>Volume:</b> ${volume:,.0f}
-📁 <b>Category:</b> {category}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ <b>Urgence:</b> <code>{urgency_rate}%</code> 🔴 CRITIQUE!
+🔥 <b>Snipabilité:</b> <code>{snipe_score:.0f}%</code>
+⏰ <b>Temps restant:</b> <code>{days_remaining}</code> jours
+💰 <b>Volume:</b> <code>${volume:,.0f}</code>
+💧 <b>Liquidité:</b> <code>${liquidity:,.0f}</code>
+📁 <b>Catégorie:</b> <code>{category}</code>
 
-🔗 <a href="{url}">View on Polymarket</a>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 <a href="{url}">📱 Voir sur Polymarket</a>
 
-⚠️ <b>Action Required:</b> This market requires immediate attention!
+⚠️ <b>ACTION IMMÉDIATE REQUISE!</b>
+Ce marché nécessite votre attention urgente.
 """
         
         return self.send_message(message.strip())
@@ -84,14 +130,16 @@ class TelegramNotifier:
         url = market.get('url', '')
         
         message = f"""
-✨ <b>NEW HIGH-QUALITY MARKET</b>
+✨ <b>NOUVEAU MARCHÉ DÉTECTÉ</b> ✨
 
-📊 {title[:100]}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 <i>{title[:150]}</i>
 
-🔥 Snipability: {snipe_score:.0f}%
-⚡ Urgency: {urgency_rate}%
+🔥 <b>Snipabilité:</b> <code>{snipe_score:.0f}%</code>
+⚡ <b>Urgence:</b> <code>{urgency_rate}%</code>
 
-🔗 <a href="{url}">View on Polymarket</a>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 <a href="{url}">📱 Voir sur Polymarket</a>
 """
         
         return self.send_message(message.strip())
@@ -107,20 +155,28 @@ class TelegramNotifier:
         
         # Emoji based on side
         emoji = '🟢' if side == 'BUY' else '🔴'
+        action = 'ACHAT' if side == 'BUY' else 'VENTE'
         
         message = f"""
-{emoji} <b>TRADE EXECUTED</b> {emoji}
+{emoji}━━━━━━━━━━━━━━━━━━━━━━━━━━━━{emoji}
+💰 <b>TRADE EXÉCUTÉ - {action}</b>
+{emoji}━━━━━━━━━━━━━━━━━━━━━━━━━━━━{emoji}
 
-📊 <b>Market:</b> {market_title[:100]}
+📊 <b>Marché:</b>
+<i>{market_title[:150]}</i>
 
-💰 <b>Side:</b> {side}
-💵 <b>Amount:</b> ${amount:.2f}
-🎯 <b>Price:</b> {price:.2f}%
-💡 <b>Reason:</b> {reason}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💵 <b>Montant:</b> <code>${amount:.2f}</code>
+🎯 <b>Prix:</b> <code>{price:.2f}%</code>
+📈 <b>Position:</b> <code>{side}</code>
 
-🔗 <a href="{market_url}">View on Polymarket</a>
+💡 <b>Raison:</b>
+<i>{reason}</i>
 
-✅ Trade successfully placed!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 <a href="{market_url}">📱 Voir sur Polymarket</a>
+
+✅ <b>Trade placé avec succès!</b>
 """
         
         return self.send_message(message.strip())
@@ -145,19 +201,24 @@ class TelegramNotifier:
         keywords_str = ', '.join(keywords[:5]) if keywords else 'N/A'
         
         message = f"""
-{emoji} <b>NEWS SIGNAL DETECTED</b> {emoji}
+{emoji}━━━━━━━━━━━━━━━━━━━━━━━━━━━━{emoji}
+🎯 <b>SIGNAL DÉTECTÉ - {source_type}</b>
+{emoji}━━━━━━━━━━━━━━━━━━━━━━━━━━━━{emoji}
 
-📊 <b>Market:</b> {market_title[:100]}
+📊 <b>Marché ciblé:</b>
+<i>{market_title[:150]}</i>
 
-📱 <b>Source:</b> {source_type} - {source_name}
-🔑 <b>Keywords:</b> {keywords_str}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱 <b>Source:</b> <code>{source_name}</code>
+🔑 <b>Mots-clés:</b> <code>{keywords_str}</code>
 
-📝 <b>Content:</b>
+📝 <b>Contenu détecté:</b>
 <i>{content}...</i>
 
-🔗 <a href="{market_url}">View Market</a>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 <a href="{market_url}">📱 Voir le marché</a>
 
-⚡ Preparing to execute trade...
+⚡ <b>Préparation du trade...</b>
 """
         
         return self.send_message(message.strip())

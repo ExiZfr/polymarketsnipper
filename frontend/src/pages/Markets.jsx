@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Filter, Radio, ExternalLink, DollarSign, Calendar, RefreshCw,
     MessageSquare, Mic, Megaphone, Users, AlertCircle, Flame, Clock, Target,
-    Zap, Activity, TrendingUp, HelpCircle, X, Info, Award, BarChart3, Bell, Sparkles
+    Zap, Activity, TrendingUp, HelpCircle, X, Info, Award, BarChart3, Bell, Sparkles, Star
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -427,6 +427,8 @@ function Markets({ token }) {
     const [showHelp, setShowHelp] = useState(false);
     const [newMarkets, setNewMarkets] = useState([]);
     const [previousMarketIds, setPreviousMarketIds] = useState(new Set());
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+    const [favorites, setFavorites] = useState(new Set());
 
     const fetchMarkets = async (forceRefresh = false) => {
         try {
@@ -449,11 +451,47 @@ function Markets({ token }) {
             // Update market IDs
             setPreviousMarketIds(new Set(fetchedMarkets.map(m => m.id)));
             setMarkets(fetchedMarkets);
+
+            // Update favorites set from fetched markets
+            const favIds = new Set(fetchedMarkets.filter(m => m.is_favorite).map(m => m.id));
+            setFavorites(favIds);
         } catch (err) {
             console.error("Failed to fetch markets:", err);
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
+        }
+    };
+
+    const toggleFavorite = async (market) => {
+        const isFavorite = favorites.has(market.id);
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+
+        try {
+            if (isFavorite) {
+                // Remove from favorites
+                await axios.delete(`${API_URL}/favorites/${market.id}`, config);
+                setFavorites(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(market.id);
+                    return newSet;
+                });
+            } else {
+                // Add to favorites
+                await axios.post(`${API_URL}/favorites/`, {
+                    market_id: market.id,
+                    market_title: market.title,
+                    market_url: market.url
+                }, config);
+                setFavorites(prev => new Set([...prev, market.id]));
+            }
+
+            // Update markets list
+            setMarkets(prev => prev.map(m =>
+                m.id === market.id ? { ...m, is_favorite: !isFavorite } : m
+            ));
+        } catch (err) {
+            console.error("Failed to toggle favorite:", err);
         }
     };
 
@@ -478,6 +516,7 @@ function Markets({ token }) {
             market.description.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'all' || market.category === selectedCategory;
         const matchesUrgency = selectedUrgency === 'all' || market.urgency === selectedUrgency;
+        const matchesFavorites = !showFavoritesOnly || favorites.has(market.id);
 
         // Urgency rate filter
         let matchesUrgencyRate = true;
@@ -492,7 +531,7 @@ function Markets({ token }) {
         }
 
 
-        return matchesSearch && matchesCategory && matchesUrgency && matchesUrgencyRate;
+        return matchesSearch && matchesCategory && matchesUrgency && matchesUrgencyRate && matchesFavorites;
     });
 
     const containerVariants = {
@@ -605,6 +644,27 @@ function Markets({ token }) {
                     </select>
                 </div>
 
+                {/* Favorites Filter */}
+                <div className="flex items-center gap-3 pt-3 border-t border-border/50">
+                    <button
+                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                        className={twMerge(
+                            "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all",
+                            showFavoritesOnly
+                                ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400"
+                                : "bg-background border-border text-textMuted hover:border-yellow-500/30"
+                        )}
+                    >
+                        <Star className={twMerge("w-4 h-4", showFavoritesOnly && "fill-yellow-400")} />
+                        {showFavoritesOnly ? "Showing Favorites" : "Show Favorites Only"}
+                    </button>
+                    {favorites.size > 0 && (
+                        <span className="text-sm text-textMuted">
+                            {favorites.size} favorite{favorites.size !== 1 ? 's' : ''}
+                        </span>
+                    )}
+                </div>
+
                 {/* Results count */}
                 <div className="mt-3 text-sm text-textMuted">
                     Showing {filteredMarkets.length} of {markets.length} high-quality snipable events
@@ -636,7 +696,13 @@ function Markets({ token }) {
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                     {filteredMarkets.map((market) => (
-                        <FlipCard key={market.id} event={market} variants={itemVariants} />
+                        <FlipCard
+                            key={market.id}
+                            event={market}
+                            variants={itemVariants}
+                            isFavorite={favorites.has(market.id)}
+                            onToggleFavorite={() => toggleFavorite(market)}
+                        />
                     ))}
                 </motion.div>
             )}
@@ -644,7 +710,7 @@ function Markets({ token }) {
     );
 }
 
-function FlipCard({ event, variants }) {
+function FlipCard({ event, variants, isFavorite, onToggleFavorite }) {
     const [isFlipped, setIsFlipped] = useState(false);
     const Icon = CATEGORY_ICONS[event.category] || Radio;
     const categoryColor = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
@@ -679,7 +745,12 @@ function FlipCard({ event, variants }) {
                     onClick={() => setIsFlipped(true)}
                     style={{ backfaceVisibility: 'hidden' }}
                 >
-                    <div className="group bg-surface border border-border hover:border-primary/50 rounded-2xl p-5 transition-all hover:shadow-lg hover:shadow-primary/10 flex flex-col h-full relative overflow-hidden">
+                    <div className={twMerge(
+                        "group bg-surface border rounded-2xl p-5 transition-all hover:shadow-lg flex flex-col h-full relative overflow-hidden",
+                        isFavorite
+                            ? "border-yellow-500/50 hover:border-yellow-500/70 shadow-yellow-500/10"
+                            : "border-border hover:border-primary/50 hover:shadow-primary/10"
+                    )}>
                         {/* Snipe Score Indicator */}
                         <div className="absolute top-0 right-0 px-4 py-2 bg-gradient-to-br from-primary/30 to-accent/30 text-white rounded-bl-2xl rounded-tr-2xl text-sm font-bold flex items-center gap-1.5 z-10">
                             <Flame className="w-4 h-4" />
@@ -691,6 +762,24 @@ function FlipCard({ event, variants }) {
                             <Clock className="w-3 h-3" />
                             {urgencyRate}%
                         </div>
+
+                        {/* Favorite Button */}
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFavorite();
+                            }}
+                            className={twMerge(
+                                "absolute top-14 left-0 p-2 rounded-br-xl rounded-tl-xl transition-all z-10",
+                                isFavorite
+                                    ? "bg-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40"
+                                    : "bg-surface/80 text-textMuted hover:bg-yellow-500/20 hover:text-yellow-400"
+                            )}
+                        >
+                            <Star className={twMerge("w-4 h-4", isFavorite && "fill-yellow-400")} />
+                        </motion.button>
 
                         {/* Market Image */}
                         {event.image ? (
@@ -760,6 +849,24 @@ function FlipCard({ event, variants }) {
                     <div className="bg-gradient-to-br from-surface to-surfaceHighlight border border-primary/30 rounded-2xl p-6 flex flex-col h-full relative overflow-hidden shadow-xl shadow-primary/10">
                         {/* Background decoration */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-bl-full" />
+
+                        {/* Favorite Button */}
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFavorite();
+                            }}
+                            className={twMerge(
+                                "absolute top-4 right-4 p-2 rounded-xl transition-all z-20",
+                                isFavorite
+                                    ? "bg-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40"
+                                    : "bg-surface/80 text-textMuted hover:bg-yellow-500/20 hover:text-yellow-400"
+                            )}
+                        >
+                            <Star className={twMerge("w-5 h-5", isFavorite && "fill-yellow-400")} />
+                        </motion.button>
 
                         <h3 className="text-lg font-bold text-white mb-4 relative z-10">
                             <Zap className="w-5 h-5 inline mr-2 text-primary" />

@@ -78,3 +78,14 @@ class PaperTrade(Base):
     profit = Column(Float, nullable=True)  # P&L when closed
     opened_at = Column(DateTime, default=datetime.utcnow, index=True)
     closed_at = Column(DateTime, nullable=True)
+
+class MarketFavorite(Base):
+    """Track user's favorite markets for prioritized monitoring"""
+    __tablename__ = "market_favorites"
+    id = Column(Integer, primary_key=True, index=True)
+    market_id = Column(String, unique=True, index=True)  # Polymarket ID
+    market_title = Column(String)
+    market_url = Column(String)
+    priority_boost = Column(Float, default=1.5)  # Multiplier for listener priority
+    created_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text, nullable=True)  # User notes about why favorited

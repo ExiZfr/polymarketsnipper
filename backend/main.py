@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import dashboard, auth, settings, radar, history, control
+from routers import dashboard, auth, settings, radar, history, control, favorites, telegram
 from services.listener import listener_service
 
 # Create tables
@@ -25,6 +25,8 @@ app.include_router(settings.router, prefix="/settings", tags=["Settings"])
 app.include_router(radar.router)
 app.include_router(history.router)
 app.include_router(control.router)
+app.include_router(favorites.router)
+app.include_router(telegram.router)
 
 @app.on_event("startup")
 async def startup_event():

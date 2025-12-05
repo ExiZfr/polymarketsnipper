@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 from services.radar import radar_service
 from routers.auth import get_current_user
+from database import get_db
+from sqlalchemy.orm import Session
+from models import MarketFavorite
 
 router = APIRouter(
     prefix="/radar",
@@ -17,7 +20,8 @@ async def get_political_events(
     min_volume: Optional[float] = Query(None, description="Minimum volume filter"),
     min_score: Optional[float] = Query(None, description="Minimum snipe score (0-1)"),
     refresh: bool = Query(False, description="Force refresh cache"),
-    current_user: str = Depends(get_current_user)
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Get all snipable political events.
@@ -51,6 +55,13 @@ async def get_political_events(
         
         if min_score is not None:
             events = [e for e in events if e.get('snipe_score', 0) >= min_score]
+        
+        # Load favorites and mark events
+        favorites = db.query(MarketFavorite).all()
+        favorite_ids = {f.market_id for f in favorites}
+        
+        for event in events:
+            event['is_favorite'] = event.get('id') in favorite_ids
         
         return events
     except Exception as e:
