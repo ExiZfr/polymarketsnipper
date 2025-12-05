@@ -19,16 +19,15 @@ logger = logging.getLogger(__name__)
 RSS_FEEDS = [
     "https://news.google.com/rss/search?q=Trump+OR+Elon+Musk&hl=en-US&gl=US&ceid=US:en",
     "https://finance.yahoo.com/news/rssindex",
-    # Add more feeds here
 ]
 
 class SocialListener:
     def __init__(self):
         self.is_running = False
-        self.scraper = Nitter(log_level=1, skip_instance_check=False)
+        self.scraper = None  # Initialize later to avoid startup errors
         self.targets = []
-        self.last_tweet_ids = {} # Keep track of last seen tweets to avoid duplicates
-        self.last_news_links = set() # Keep track of last seen news
+        self.last_tweet_ids = {}
+        self.last_news_links = set()
         
     def start(self):
         """Start the monitoring loop in a background thread."""
@@ -39,7 +38,7 @@ class SocialListener:
         thread = threading.Thread(target=self._monitor_loop, daemon=True)
         thread.start()
         logger.info("Social Listener started")
-        self._log_system("INFO", "Social Listener module started")
+        self._log_system("INFO", "Social Listener module started successfully")
 
     def stop(self):
         """Stop the monitoring loop."""
@@ -49,17 +48,23 @@ class SocialListener:
 
     def _monitor_loop(self):
         """Main monitoring loop."""
+        self._log_system("INFO", "Listener monitoring loop initialized")
+        
         while self.is_running:
             try:
                 # 1. Update targets from Radar
+                self._log_system("INFO", "Updating active targets from Radar...")
                 self._update_targets()
                 
                 # 2. Check Twitter (via Nitter)
+                self._log_system("INFO", f"Scanning Twitter for {len(self.targets)} targets...")
                 self._check_twitter()
                 
                 # 3. Check RSS News
+                self._log_system("INFO", f"Scanning {len(RSS_FEEDS)} RSS feeds...")
                 self._check_news()
                 
+                self._log_system("INFO", f"Scan cycle complete. Waiting 60s before next scan.")
                 # Sleep to avoid rate limits
                 time.sleep(60) 
                 
@@ -77,18 +82,29 @@ class SocialListener:
             # Filter for active ones
             self.targets = [e for e in events if e.get('days_remaining', 0) is not None and e.get('days_remaining', 0) >= 0]
             
+            self._log_system("INFO", f"Listener now tracking {len(self.targets)} active targets")
             logger.info(f"Listener tracking {len(self.targets)} active targets")
         except Exception as e:
             logger.error(f"Failed to update targets: {e}")
+            self._log_system("ERROR", f"Failed to update targets: {str(e)}")
 
     def _check_twitter(self):
         """Scrape tweets for target personalities."""
-        # Map of common handles
         handles = {
             'Trump': 'realDonaldTrump',
             'Elon Musk': 'elonmusk',
             'Biden': 'JoeBiden'
         }
+        
+        # Initialize scraper on first use
+        if self.scraper is None:
+            try:
+                self._log_system("INFO", "Initializing Nitter scraper...")
+                self.scraper = Nitter(log_level=1, skip_instance_check=False)
+                self._log_system("INFO", "Nitter scraper initialized successfully")
+            except Exception as e:
+                self._log_system("ERROR", f"Failed to initialize Nitter scraper: {str(e)}")
+                return
         
         for target in self.targets:
             persons = target.get('persons', [])
@@ -98,10 +114,11 @@ class SocialListener:
                     continue
                 
                 try:
-                    # Scrape user tweets
+                    self._log_system("INFO", f"Scraping tweets from @{handle}...")
                     tweets = self.scraper.get_tweets(handle, mode='user', number=5)
                     
                     if tweets and 'tweets' in tweets:
+                        self._log_system("INFO", f"Found {len(tweets['tweets'])} tweets from @{handle}")
                         for tweet in tweets['tweets']:
                             tweet_id = tweet.get('link')
                             if tweet_id in self.last_tweet_ids:
@@ -110,11 +127,15 @@ class SocialListener:
                             self.last_tweet_ids[tweet_id] = time.time()
                             text = tweet.get('text', '')
                             
+                            self._log_system("INFO", f"Analyzing tweet: {text[:50]}...")
                             # Check for match
                             self._analyze_content(text, "Twitter", f"@{handle}", target)
+                    else:
+                        self._log_system("WARNING", f"No tweets returned from @{handle}")
                             
                 except Exception as e:
                     logger.warning(f"Failed to scrape twitter for {handle}: {e}")
+                    self._log_system("WARNING", f"Twitter scraping failed for @{handle}: {str(e)}")
 
         # Cleanup old IDs
         current_time = time.time()
@@ -124,8 +145,16 @@ class SocialListener:
         """Check RSS feeds."""
         for feed_url in RSS_FEEDS:
             try:
+                self._log_system("INFO", f"Parsing RSS feed: {feed_url[:50]}...")
                 feed = feedparser.parse(feed_url)
-                for entry in feed.entries:
+                
+                if not feed.entries:
+                    self._log_system("WARNING", f"No entries in RSS feed: {feed_url[:50]}")
+                    continue
+                    
+                self._log_system("INFO", f"Found {len(feed.entries)} news entries")
+                
+                for entry in feed.entries[:10]:  # Limit to 10 most recent
                     link = entry.link
                     if link in self.last_news_links:
                         continue
@@ -135,12 +164,14 @@ class SocialListener:
                     summary = getattr(entry, 'summary', '')
                     content = f"{title} {summary}"
                     
+                    self._log_system("INFO", f"Analyzing news: {title[:50]}...")
                     # Check against all targets
                     for target in self.targets:
                         self._analyze_content(content, "News", feed_url, target)
                         
             except Exception as e:
                 logger.warning(f"Failed to parse RSS {feed_url}: {e}")
+                self._log_system("WARNING", f"RSS parsing failed: {str(e)}")
         
         # Keep set size manageable
         if len(self.last_news_links) > 1000:
@@ -148,14 +179,10 @@ class SocialListener:
 
     def _analyze_content(self, text: str, source_type: str, source_name: str, target: Dict):
         """Analyze content to see if it matches a target market."""
-        # Simple keyword matching for now
-        # In a real system, this would use more advanced NLP or specific rules
-        
         market_title = target.get('title', '').lower()
         text_lower = text.lower()
         
-        # Extract keywords from market title (very basic heuristic)
-        # e.g. "Will Trump say 'crypto'?" -> keywords: crypto
+        # Extract keywords from market title
         keywords = self._extract_keywords(market_title)
         
         if not keywords:
@@ -167,11 +194,8 @@ class SocialListener:
 
     def _extract_keywords(self, title: str) -> List[str]:
         """Extract potential trigger keywords from market title."""
-        # This is a placeholder logic. Real logic needs to be much smarter.
-        # It looks for words in quotes or specific patterns.
-        
         # Look for quoted text: "Will Trump say 'MAGA'?" -> MAGA
-        quoted = re.findall(r"['\"](.*?)['\"]", title)
+        quoted = re.findall(r"['\"](.{2,}?)['\"]", title)
         if quoted:
             return [q.lower() for q in quoted]
         
@@ -179,9 +203,9 @@ class SocialListener:
 
     def _trigger_snipe(self, target: Dict, content: str, source_type: str, source_name: str):
         """Trigger a snipe action."""
-        logger.info(f"SNIPE TRIGGERED! Market: {target['title']} | Source: {source_name}")
+        logger.info(f"🎯 SNIPE TRIGGERED! Market: {target['title']} | Source: {source_name}")
         
-        self._log_system("INFO", f"SNIPE SIGNAL: {target['title']} detected in {source_type}")
+        self._log_system("INFO", f"🎯 SNIPE SIGNAL DETECTED! Market: '{target['title']}' matched in {source_type}")
         
         # Record the "Trade" (Simulation)
         db = SessionLocal()
@@ -189,17 +213,19 @@ class SocialListener:
             trade = Trade(
                 market_id=str(target['id']),
                 market_title=target['title'],
-                side="BUY", # Default to BUY YES
+                side="BUY",
                 outcome="YES",
-                amount=100.0, # Mock amount
-                price=0.50, # Mock price
-                status="FILLED", # Simulated fill
-                trigger_event=f"{source_type}: {content[:50]}..."
+                amount=100.0,
+                price=0.50,
+                status="FILLED",
+                trigger_event=f"{source_type}: {content[:100]}..."
             )
             db.add(trade)
             db.commit()
+            self._log_system("INFO", f"Trade recorded successfully: {target['title']}")
         except Exception as e:
             logger.error(f"Failed to record trade: {e}")
+            self._log_system("ERROR", f"Failed to record trade: {str(e)}")
         finally:
             db.close()
 
