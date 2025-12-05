@@ -58,3 +58,23 @@ class ActivitySnapshot(Base):
     events_detected = Column(Integer, default=0)  # Markets from radar
     trades_executed = Column(Integer, default=0)  # Trades completed
     active_targets = Column(Integer, default=0)   # Active monitoring targets
+
+class PaperTrade(Base):
+    """Track paper trades for algorithm validation"""
+    __tablename__ = "paper_trades"
+    id = Column(Integer, primary_key=True, index=True)
+    market_id = Column(String, index=True)
+    market_title = Column(String)
+    side = Column(String)  # YES or NO
+    size = Column(Float)  # Position size in USD
+    confidence = Column(Float)  # Overall confidence score
+    signal_quality = Column(Float)  # Signal quality score
+    market_quality = Column(Float)  # Market quality score
+    signal_source = Column(String)  # twitter, rss
+    signal_content = Column(String, nullable=True)  # What was detected
+    status = Column(String, default='OPEN')  # OPEN, CLOSED, EXPIRED
+    outcome = Column(String, nullable=True)  # WIN, LOSS (when closed)
+    payout = Column(Float, nullable=True)  # Payout when closed
+    profit = Column(Float, nullable=True)  # P&L when closed
+    opened_at = Column(DateTime, default=datetime.utcnow, index=True)
+    closed_at = Column(DateTime, nullable=True)
