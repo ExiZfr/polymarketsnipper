@@ -370,8 +370,8 @@ function RadarHelpModal({ isOpen, onClose }) {
                             <div>
                                 <h3 className="text-lg font-bold text-white mb-2">Snipe Score (Global)</h3>
                                 <p className="text-textMuted text-sm leading-relaxed">
-                                    The master probability score (0-100%) indicating how "snipable" a market is. 
-                                    It combines all sub-metrics below. A score > 45% is considered
+                                    The master probability score (0-100%) indicating how "snipable" a market is.
+                                    It combines all sub-metrics below. A score &gt; 45% is considered
                                     <span className="text-primary font-bold"> High Quality</span>.
                                 </p>
                             </div>
