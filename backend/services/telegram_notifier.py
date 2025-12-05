@@ -10,14 +10,52 @@ logger = logging.getLogger(__name__)
 
 class TelegramNotifier:
     def __init__(self):
-        self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
-        self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
+        self.bot_token = ''
+        self.chat_id = ''
+        self.enabled = False
+        self._load_credentials()
+    
+    def _load_credentials(self):
+        """Load Telegram credentials from database or environment"""
+        try:
+            from database import SessionLocal
+            from models import Setting
+            
+            db = SessionLocal()
+            
+            # Try to get from database first
+            token_setting = db.query(Setting).filter(Setting.key == "TELEGRAM_BOT_TOKEN").first()
+            chat_setting = db.query(Setting).filter(Setting.key == "TELEGRAM_CHAT_ID").first()
+            
+            if token_setting and token_setting.value:
+                self.bot_token = token_setting.value
+            else:
+                # Fallback to environment variable
+                self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
+            
+            if chat_setting and chat_setting.value:
+                self.chat_id = chat_setting.value
+            else:
+                # Fallback to environment variable
+                self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
+            
+            db.close()
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load from database, using env vars: {e}")
+            self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
+            self.chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
+        
         self.enabled = bool(self.bot_token and self.chat_id)
         
         if not self.enabled:
             logger.warning("⚠️ Telegram notifications disabled - missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
         else:
             logger.info("✅ Telegram notifications enabled")
+    
+    def reload_credentials(self):
+        """Reload credentials from database (call after settings update)"""
+        self._load_credentials()
     
     def send_message(self, message: str, parse_mode: str = 'HTML') -> bool:
         """Send a message via Telegram bot"""
