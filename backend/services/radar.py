@@ -97,19 +97,109 @@ class PolymarketRadar:
         
         return detected_category, detected_persons
 
+    def _assess_trigger_clarity(self, event: Dict) -> float:
+        """
+        Assess how clear the trigger event is (0-1).
+        Higher = easier to detect when it happens.
+        """
+        title = event.get('title', '').lower()
+        category = event.get('category', 'other')
+        
+        # Tweet-based markets are clearest
+        if category == 'tweet' or 'tweet' in title:
+            # Check if specific content is required
+            if '"' in event.get('title', '') or "'" in event.get('title', ''):
+                return 1.0  # Specific tweet content
+            return 0.9  # General tweet
+        
+        # Speech/announcement with quoted content
+        if (category in ['speech', 'announcement', 'statement']) and ('"' in event.get('title', '') or "'" in event.get('title', '')):
+            return 0.9
+        
+        # General announcement/speech
+        if category in ['speech', 'announcement', 'statement']:
+            return 0.7
+        
+        # Action-based with clear deadline
+        if 'before' in title or 'by ' in title:
+            return 0.6
+        
+        # Vague or unclear
+        return 0.3
+
+    def _assess_monitorability(self, event: Dict) -> float:
+        """
+        Assess how easily we can monitor this event (0-1).
+        Higher = easier to track in real-time.
+        """
+        title = event.get('title', '').lower()
+        category = event.get('category', 'other')
+        
+        # Twitter/social media - perfect monitoring
+        if category == 'tweet' or 'tweet' in title or 'post' in title:
+            return 1.0
+        
+        # News-based events
+        if category in ['announcement', 'statement'] or 'announce' in title:
+            return 0.8
+        
+        # Public speeches
+        if category == 'speech' or 'speech' in title:
+            return 0.7
+        
+        # Interviews/shows
+        if category == 'interview':
+            return 0.6
+        
+        # Vague actions
+        if category == 'action':
+            return 0.4
+        
+        return 0.3
+
+    def _assess_reaction_speed(self, event: Dict) -> float:
+        """
+        Assess required reaction speed (0-1).
+        Higher = more time to react after trigger.
+        """
+        title = event.get('title', '').lower()
+        category = event.get('category', 'other')
+        days_remaining = event.get('days_remaining')
+        
+        # Tweet-based: need instant reaction
+        if category == 'tweet':
+            return 1.0
+        
+        # News/announcements: minutes to hours
+        if category in ['announcement', 'statement', 'speech']:
+            return 0.7
+        
+        # Long-term events
+        if days_remaining and days_remaining > 30:
+            return 0.2
+        
+        return 0.5
+
     def _calculate_snipe_score(self, event: Dict) -> float:
         """
-        Calculate snipability score for an event.
+        Calculate advanced snipability score.
         
-        Score based on:
-        - Urgency (days remaining)
-        - Liquidity
-        - Volume
-        - Clarity (how specific the market is)
+        New criteria:
+        - Trigger clarity (30%)
+        - Monitorability (25%)
+        - Reaction speed (20%)
+        - Urgency (15%)
+        - Volume (5%)
+        - Liquidity (5%)
         
         Returns:
             Float between 0 and 1
         """
+        # New criteria
+        trigger_clarity = self._assess_trigger_clarity(event)
+        monitorability = self._assess_monitorability(event)
+        reaction_speed = self._assess_reaction_speed(event)
+        
         # Urgency score (0-1, higher = more urgent)
         urgency_score = 0.0
         end_date_str = event.get('end_date') or event.get('endDate')
@@ -122,39 +212,62 @@ class PolymarketRadar:
                 elif days_remaining <= 1:
                     urgency_score = 1.0
                 elif days_remaining <= 7:
-                    urgency_score = 0.8
+                    urgency_score = 0.9
                 elif days_remaining <= 30:
-                    urgency_score = 0.5
+                    urgency_score = 0.7
+                elif days_remaining <= 90:
+                    urgency_score = 0.4
                 else:
-                    urgency_score = 0.2
+                    urgency_score = 0.1
             except:
                 urgency_score = 0.3
         
         # Liquidity score (0-1)
         liquidity = float(event.get('liquidity', 0))
-        liquidity_score = min(liquidity / 100000, 1.0)  # Normalize to 100k
+        liquidity_score = min(liquidity / 50000, 1.0)
         
         # Volume score (0-1)
         volume = float(event.get('volume', 0))
-        volume_score = min(volume / 500000, 1.0)  # Normalize to 500k
+        volume_score = min(volume / 100000, 1.0)
         
-        # Clarity score (0-1, based on title length and specificity)
-        title = event.get('title', '')
-        clarity_score = 0.7  # Base score
-        if len(title) > 50:  # Specific markets tend to have longer titles
-            clarity_score = 0.8
-        if 'before' in title.lower() or 'by' in title.lower():  # Has deadline
-            clarity_score = 0.9
-        
-        # Weighted average
+        # Weighted average with new weights
         snipe_score = (
-            urgency_score * 0.4 +
-            liquidity_score * 0.3 +
-            volume_score * 0.2 +
-            clarity_score * 0.1
+            trigger_clarity * 0.30 +
+            monitorability * 0.25 +
+            reaction_speed * 0.20 +
+            urgency_score * 0.15 +
+            volume_score * 0.05 +
+            liquidity_score * 0.05
         )
         
         return round(snipe_score, 2)
+
+    def _is_snipable(self, event: Dict) -> bool:
+        """
+        Determine if a market should be displayed.
+        Filters out non-snipable markets.
+        """
+        score = event.get('snipe_score', 0)
+        volume = event.get('volume', 0)
+        days_remaining = event.get('days_remaining')
+        
+        # Minimum score threshold
+        if score < 0.30:  # Modéré
+            return False
+        
+        # Minimum volume
+        if volume < 1000:
+            return False
+        
+        # Too far in future
+        if days_remaining and days_remaining > 120:
+            return False
+        
+        # Expired
+        if days_remaining is not None and days_remaining < 0:
+            return False
+        
+        return True
 
     def _get_urgency_level(self, end_date_str: Optional[str]) -> str:
         """Get urgency level based on end date."""
@@ -198,25 +311,23 @@ class PolymarketRadar:
             }
             
             if query:
-                params["q"] = query
+                params["query"] = query
             
-            logger.info(f"Searching Polymarket with query: '{query}'")
             response = self.session.get(GAMMA_API_URL, params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
-            
-            # Handle both array response and paginated response
-            if isinstance(data, list):
-                return data
-            elif isinstance(data, dict) and 'data' in data:
-                return data['data']
-            else:
-                logger.warning(f"Unexpected API response format: {type(data)}")
-                return []
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error searching markets for query '{query}': {e}")
+            logger.info(f"Retrieved {len(data)} events from Polymarket API")
+            return data
+        
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error occurred: {e}")
+            return []
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error occurred: {e}")
+            return []
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Timeout error occurred: {e}")
             return []
         except ValueError as e:
             logger.error(f"JSON parsing error: {e}")
@@ -227,7 +338,7 @@ class PolymarketRadar:
 
     def get_political_events(self, use_cache: bool = True) -> List[Dict]:
         """
-        Search for all snipable political events.
+        Search for all snipable political events with improved filtering.
         
         Args:
             use_cache: Whether to use cached results if available
@@ -240,18 +351,14 @@ class PolymarketRadar:
             logger.info("Returning cached political events")
             return self.cache['data']
         
-        # Broad search strategies - cast a wide net
+        # Targeted search queries for snipable markets
         search_queries = [
-            "will",       # "Will X happen..."
-            "announce",   # Announcements
-            "tweet",      # Tweet markets
-            "say",        # Speech/statement markets
-            "mention",    # Mention markets
-            "trump",      # Trump-specific
-            "biden",      # Biden-specific
-            "elon",       # Elon-specific
-            "president",  # Presidential markets
-            "election"    # Election markets
+            "tweet say",      # Tweet-based markets
+            "announce before", # Time-bound announcements
+            "speech mention",  # Speech content markets
+            "trump elon",      # High-profile figures
+            "biden president", # Political markets
+            "crypto mention",  # Crypto-related (high activity)
         ]
         
         all_events = []
@@ -272,8 +379,6 @@ class PolymarketRadar:
                 title = event.get('title', '')
                 description = event.get('description', '')
                 
-                # REMOVED POLITICAL FILTER - Show ALL markets now
-                # Just deduplicate
                 seen_ids.add(event_id)
                 
                 # Categorize
@@ -304,10 +409,6 @@ class PolymarketRadar:
                     "url": f"https://polymarket.com/event/{event.get('slug', '')}"
                 }
                 
-                # Calculate snipe score
-                enriched_event['snipe_score'] = self._calculate_snipe_score(enriched_event)
-                enriched_event['urgency'] = self._get_urgency_level(enriched_event['end_date'])
-                
                 # Calculate days remaining
                 if enriched_event['end_date']:
                     try:
@@ -318,7 +419,21 @@ class PolymarketRadar:
                 else:
                     enriched_event['days_remaining'] = None
                 
-                all_events.append(enriched_event)
+                # Calculate snipe score (MUST be before _is_snipable check)
+                enriched_event['snipe_score'] = self._calculate_snipe_score(enriched_event)
+                enriched_event['urgency'] = self._get_urgency_level(enriched_event['end_date'])
+                
+                # Add detailed score breakdown for frontend
+                enriched_event['score_breakdown'] = {
+                    'trigger_clarity': round(self._assess_trigger_clarity(enriched_event) * 100),
+                    'monitorability': round(self._assess_monitorability(enriched_event) * 100),
+                    'reaction_speed': round(self._assess_reaction_speed(enriched_event) * 100),
+                    'urgency': round((enriched_event['snipe_score'] / 0.15 if enriched_event['snipe_score'] > 0 else 0) * 100)
+                }
+                
+                # Filter: Only keep snipable markets
+                if self._is_snipable(enriched_event):
+                    all_events.append(enriched_event)
         
         # Sort by snipe score (highest first)
         all_events.sort(key=lambda x: x.get('snipe_score', 0), reverse=True)
@@ -327,7 +442,7 @@ class PolymarketRadar:
         self.cache['data'] = all_events
         self.cache['timestamp'] = datetime.now()
         
-        logger.info(f"✓ Radar scan complete: {len(all_events)} snipable markets detected")
+        logger.info(f"✓ Radar scan complete: {len(all_events)} high-quality snipable markets detected")
         return all_events
 
     def get_tweet_markets(self, use_cache: bool = True) -> List[Dict]:
@@ -343,39 +458,44 @@ class PolymarketRadar:
         
         Args:
             person: Name of the person (e.g., 'trump', 'biden', 'elon')
-            
+        
         Returns:
-            Filtered list of markets
+            List of markets related to that person
         """
-        all_markets = self.get_political_events()
+        all_events = self.get_political_events()
         person_lower = person.lower()
         
+        # Filter by person in title, description, or detected persons
         filtered = []
-        for market in all_markets:
-            # Check if person is in the detected persons list
-            if any(person_lower in p.lower() for p in market.get('persons', [])):
-                filtered.append(market)
+        for event in all_events:
+            text = (event.get('title', '') + ' ' + event.get('description', '')).lower()
+            detected_persons = [p.lower() for p in event.get('persons', [])]
+            
+            if person_lower in text or person_lower in detected_persons:
+                filtered.append(event)
         
         return filtered
 
     def get_events_by_category(self, category: str) -> List[Dict]:
-        """Get events by category."""
+        """Get events by category (tweet, speech, etc.)"""
         all_events = self.get_political_events()
-        return [e for e in all_events if e['category'] == category]
+        return [e for e in all_events if e.get('category') == category]
 
-    def get_urgent_events(self, urgency: str = 'high') -> List[Dict]:
-        """Get events by urgency level."""
+    def get_urgent_events(self, min_urgency: str = 'medium') -> List[Dict]:
+        """
+        Get urgent events.
+        
+        Args:
+            min_urgency: Minimum urgency level ('critical', 'high', 'medium', 'low')
+        """
+        urgency_order = {'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'unknown': 0}
+        min_level = urgency_order.get(min_urgency, 2)
+        
         all_events = self.get_political_events()
-        valid_urgencies = ['critical', 'high', 'medium', 'low']
-        
-        if urgency in valid_urgencies:
-            idx = valid_urgencies.index(urgency)
-            return [e for e in all_events if e['urgency'] in valid_urgencies[:idx+1]]
-        
-        return all_events
+        return [e for e in all_events if urgency_order.get(e.get('urgency', 'unknown'), 0) >= min_level]
 
     def clear_cache(self):
-        """Manually clear the cache."""
+        """Clear the cache to force refresh."""
         self.cache['data'] = []
         self.cache['timestamp'] = None
         logger.info("Cache cleared")
