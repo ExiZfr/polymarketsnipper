@@ -52,26 +52,29 @@ class SocialListener:
         
         while self.is_running:
             try:
-                # 1. Update targets from Radar
-                self._log_system("INFO", "📡 Updating active targets from Radar...")
-                self._update_targets()
+                # Update targets every 10 cycles (not every time to avoid overload)
+                if self.cycle_count % 10 == 0:
+                    self._log_system("INFO", "📡 Updating active targets from Radar...")
+                    self._update_targets()
+                
+                self.cycle_count += 1
                 
                 # 2. Check Twitter (via Nitter)
-                self._log_system("INFO", f"🐦 Scanning Twitter for {len(self.targets)} targets...")
-                self._check_twitter()
+                if len(self.targets) > 0:
+                    self._log_system("INFO", f"🐦 Scanning Twitter for {len(self.targets)} targets...")
+                    self._check_twitter()
                 
                 # 3. Check RSS News
                 self._log_system("INFO", f"📰 Scanning {len(RSS_FEEDS)} RSS feeds...")
                 self._check_news()
                 
-                self._log_system("INFO", f"Scan cycle complete. Waiting 60s before next scan.")
-                # Sleep to avoid rate limits
-                time.sleep(60) 
+                # Very short sleep for continuous monitoring (1-3 requests per second)
+                time.sleep(2)  # 2 seconds = ~0.5 requests/second per source
                 
             except Exception as e:
                 logger.error(f"Error in listener loop: {e}")
                 self._log_system("ERROR", f"Listener loop error: {str(e)}")
-                time.sleep(60)
+                time.sleep(5)  # Shorter error recovery
 
     def _update_targets(self):
         """Get active markets from Radar service."""
