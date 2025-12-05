@@ -37,231 +37,296 @@ function Dashboard({ token, setToken }) {
     const [chartData, setChartData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
+    const [moduleStates, setModuleStates] = useState({
+        radar: 'ON',
+        listener: 'OFF',
+        executor: 'OFF'
+    });
 
     useEffect(() => {
         const fetchData = async () => {
-            try {
-                const config = { headers: { Authorization: `Bearer ${token}` } };
-                const [statsRes, logsRes, chartRes] = await Promise.all([
-                    axios.get(`${API_URL}/dashboard/stats`, config),
-                    axios.get(`${API_URL}/dashboard/logs`, config),
-                    axios.get(`${API_URL}/dashboard/activity_chart?hours=24`, config)
-                ]);
+            try:
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const [statsRes, logsRes, chartRes] = await Promise.all([
+                axios.get(`${API_URL}/dashboard/stats`, config),
+                axios.get(`${API_URL}/dashboard/logs`, config),
+                axios.get(`${API_URL}/dashboard/activity_chart?hours=24`, config)
+            ]);
 
-                setStats(statsRes.data);
-                setLogs(logsRes.data);
-                setChartData(chartRes.data);
-                setIsLoading(false);
-            } catch (err) {
-                console.error(err);
-                if (err.response && err.response.status === 401) {
-                    setToken(null);
-                }
-            }
-        };
+            setStats(statsRes.data);
+            setLogs(logsRes.data);
+            setChartData(chartRes.data);
 
-        fetchData();
-        const interval = setInterval(fetchData, 5000);
-        return () => clearInterval(interval);
-    }, [token, setToken]);
+            // Update module states from stats
+            setModuleStates({
+                radar: statsRes.data.radar_status || 'ON',
+                listener: statsRes.data.listener_status || 'OFF',
+                executor: statsRes.data.executor_status || 'OFF'
+            });
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                staggerChildren: 0.1
+            setIsLoading(false);
+        } catch (err) {
+            console.error(err);
+            if (err.response && err.response.status === 401) {
+                setToken(null);
             }
         }
     };
 
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1 }
-    };
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+}, [token, setToken]);
 
-    return (
-        <motion.div
-            className="space-y-6"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-        >
-            {/* Header Section */}
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Command Center</h1>
-                    <p className="text-textMuted text-sm md:text-base">Real-time monitoring and control system</p>
-                </div>
-                <div className="flex items-center gap-2 text-xs md:text-sm text-textMuted bg-surface/50 px-3 py-1.5 rounded-full border border-border/50">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    System Online
-                </div>
-            </header>
+const handleModuleToggle = async (module) => {
+    try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const currentState = moduleStates[module];
+        const isCurrentlyOn = currentState === 'ON' || currentState === 'SCANNING';
+        const action = isCurrentlyOn ? 'stop' : 'start';
 
-            {/* Top Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                <StatCard
-                    title="Active Events"
-                    value={stats?.active_markets || 0}
-                    icon={Target}
-                    trend={stats?.total_markets ? `${stats.total_markets} total` : null}
-                    color="blue"
-                />
-                <StatCard
-                    title="Volume Tracked"
-                    value={stats?.total_volume ? `$${(stats.total_volume / 1000000).toFixed(1)}M` : '$0'}
-                    icon={DollarSign}
-                    color="green"
-                />
-                <StatCard
-                    title="Events Detected"
-                    value={stats?.total_markets || 0}
-                    icon={Zap}
-                    color="yellow"
-                />
-                <StatCard
-                    title="Trades Today"
-                    value={stats?.trades_today || 0}
-                    icon={TrendingUp}
-                    color="purple"
-                />
+        await axios.post(`${API_URL}/control/${module}/${action}`, {}, config);
+
+        // Optimistically update state
+        setModuleStates(prev => ({
+            ...prev,
+            [module]: isCurrentlyOn ? 'OFF' : 'ON'
+        }));
+    } catch (err) {
+        console.error(`Failed to toggle ${module}:`, err);
+    }
+};
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.1
+        }
+    }
+};
+
+const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 }
+};
+
+// Parse log message for visual enhancements
+const getLogStyle = (log) => {
+    const msg = log.message.toLowerCase();
+
+    // Detect important events
+    if (msg.includes('snipe') || msg.includes('🎯')) {
+        return { color: 'text-yellow-300', bg: 'bg-yellow-500/10', icon: '🎯' };
+    }
+    if (msg.includes('trade') || msg.includes('💰') || msg.includes('✅')) {
+        return { color: 'text-green-300', bg: 'bg-green-500/10', icon: '💰' };
+    }
+    if (msg.includes('found') || msg.includes('detected') || msg.includes('📄')) {
+        return { color: 'text-blue-300', bg: 'bg-blue-500/10', icon: '📰' };
+    }
+    if (msg.includes('scanning') || msg.includes('📡') || msg.includes('🐦')) {
+        return { color: 'text-purple-300', bg: 'bg-purple-500/10', icon: '🔍' };
+    }
+    if (msg.includes('started') || msg.includes('activated') || msg.includes('🚀')) {
+        return { color: 'text-cyan-300', bg: 'bg-cyan-500/10', icon: '🚀' };
+    }
+    if (msg.includes('stopped') || msg.includes('paused') || msg.includes('⏸')) {
+        return { color: 'text-orange-300', bg: 'bg-orange-500/10', icon: '⏸️' };
+    }
+    if (log.level === 'ERROR') {
+        return { color: 'text-red-300', bg: 'bg-red-500/10', icon: '❌' };
+    }
+    if (log.level === 'WARNING') {
+        return { color: 'text-yellow-300', bg: 'bg-yellow-500/10', icon: '⚠️' };
+    }
+
+    return { color: 'text-gray-300', bg: '', icon: 'ℹ️' };
+};
+
+return (
+    <motion.div
+        className="space-y-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+    >
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Command Center</h1>
+                <p className="text-textMuted text-sm md:text-base">Real-time monitoring and control system</p>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Chart Section */}
-                <motion.div
-                    variants={itemVariants}
-                    className="lg:col-span-2 bg-surface/40 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6 shadow-xl"
-                >
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-primary" />
-                            Activity Overview (Last 24h)
-                        </h2>
-                    </div>
-                    <div className="h-[250px] md:h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorTrades" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                <XAxis dataKey="time" stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }}
-                                    itemStyle={{ color: '#E5E7EB' }}
-                                />
-                                <Area type="monotone" dataKey="events" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorEvents)" name="Events" />
-                                <Area type="monotone" dataKey="trades" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorTrades)" name="Trades" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </motion.div>
-
-                {/* Module Status Column */}
-                <div className="space-y-4">
-                    <ModuleCard
-                        title="Market Radar"
-                        status={stats?.radar_status || 'OFF'}
-                        icon={Radio}
-                        description="Scanning Polymarket API for new opportunities"
-                    />
-                    <ModuleCard
-                        title="Social Listener"
-                        status={stats?.listener_status || 'OFF'}
-                        icon={Ear}
-                        description="Monitoring Twitter feeds for keywords"
-                    />
-                    <ModuleCard
-                        title="Trade Executor"
-                        status={stats?.executor_status || 'OFF'}
-                        icon={Zap}
-                        description="Ready to execute orders with <300ms latency"
-                    />
-                </div>
+            <div className="flex items-center gap-2 text-xs md:text-sm text-textMuted bg-surface/50 px-3 py-1.5 rounded-full border border-border/50">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                System Online
             </div>
+        </header>
 
-            {/* Logs Console */}
+        {/* Top Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <StatCard
+                title="Active Events"
+                value={stats?.active_markets || 0}
+                icon={Target}
+                trend={stats?.total_markets ? `${stats.total_markets} total` : null}
+                color="blue"
+            />
+            <StatCard
+                title="Volume Tracked"
+                value={stats?.total_volume ? `$${(stats.total_volume / 1000000).toFixed(1)}M` : '$0'}
+                icon={DollarSign}
+                color="green"
+            />
+            <StatCard
+                title="Events Detected"
+                value={stats?.total_markets || 0}
+                icon={Zap}
+                color="yellow"
+            />
+            <StatCard
+                title="Trades Today"
+                value={stats?.trades_today || 0}
+                icon={TrendingUp}
+                color="purple"
+            />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Chart Section */}
             <motion.div
                 variants={itemVariants}
-                className="bg-black/40 backdrop-blur-md border border-border/50 rounded-2xl overflow-hidden shadow-xl"
+                className="lg:col-span-2 bg-surface/40 backdrop-blur-md border border-border/50 rounded-2xl p-4 md:p-6 shadow-xl"
             >
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border-b border-border/50 bg-surface/30 gap-4">
-                    <div className="flex items-center gap-2">
-                        <Terminal className="w-5 h-5 text-textMuted" />
-                        <h2 className="font-mono text-sm font-bold text-textMuted uppercase tracking-wider">System Logs</h2>
-                    </div>
-                    <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                        {['all', 'info', 'warning', 'error'].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={twMerge(
-                                    "px-3 py-1 rounded-md text-xs font-medium transition-colors uppercase whitespace-nowrap",
-                                    activeTab === tab
-                                        ? "bg-primary/20 text-primary border border-primary/30"
-                                        : "text-textMuted hover:text-white hover:bg-white/5"
-                                )}
-                            >
-                                {tab}
-                            </button>
-                        ))}
-                    </div>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-primary" />
+                        Activity Overview (Last 24h)
+                    </h2>
                 </div>
-                <div className="h-64 overflow-y-auto p-4 font-mono text-xs space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-                    <AnimatePresence initial={false}>
-                        {logs.filter(l => activeTab === 'all' || l.level.toLowerCase() === activeTab).length === 0 ? (
-                            <div className="text-textMuted italic opacity-50">No logs to display...</div>
-                        ) : (
-                            logs
-                                .filter(l => activeTab === 'all' || l.level.toLowerCase() === activeTab)
-                                .map((log) => (
+                <div className="h-[250px] md:h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                            <defs>
+                                <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorTrades" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                            <XAxis dataKey="time" stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }}
+                                itemStyle={{ color: '#E5E7EB' }}
+                            />
+                            <Area type="monotone" dataKey="events" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorEvents)" name="Events" />
+                            <Area type="monotone" dataKey="trades" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorTrades)" name="Trades" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </motion.div>
+
+            {/* Module Status Column */}
+            <div className="space-y-4">
+                <ModuleCard
+                    title="Market Radar"
+                    status={moduleStates.radar}
+                    icon={Radio}
+                    description="Scanning Polymarket API for new opportunities"
+                    onToggle={() => handleModuleToggle('radar')}
+                />
+                <ModuleCard
+                    title="Social Listener"
+                    status={moduleStates.listener}
+                    icon={Ear}
+                    description="Monitoring Twitter feeds for keywords"
+                    onToggle={() => handleModuleToggle('listener')}
+                />
+                <ModuleCard
+                    title="Trade Executor"
+                    status={moduleStates.executor}
+                    icon={Zap}
+                    description="Ready to execute orders with <300ms latency"
+                    onToggle={() => handleModuleToggle('executor')}
+                />
+            </div>
+        </div>
+
+        {/* Enhanced Logs Console */}
+        <motion.div
+            variants={itemVariants}
+            className="bg-black/40 backdrop-blur-md border border-border/50 rounded-2xl overflow-hidden shadow-xl"
+        >
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border-b border-border/50 bg-surface/30 gap-4">
+                <div className="flex items-center gap-2">
+                    <Terminal className="w-5 h-5 text-textMuted" />
+                    <h2 className="font-mono text-sm font-bold text-textMuted uppercase tracking-wider">System Logs</h2>
+                </div>
+                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                    {['all', 'info', 'warning', 'error'].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={twMerge(
+                                "px-3 py-1 rounded-md text-xs font-medium transition-colors uppercase whitespace-nowrap",
+                                activeTab === tab
+                                    ? "bg-primary/20 text-primary border border-primary/30"
+                                    : "text-textMuted hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="h-64 overflow-y-auto p-4 font-mono text-xs space-y-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                <AnimatePresence initial={false}>
+                    {logs.filter(l => activeTab === 'all' || l.level.toLowerCase() === activeTab).length === 0 ? (
+                        <div className="text-textMuted italic opacity-50">No logs to display...</div>
+                    ) : (
+                        logs
+                            .filter(l => activeTab === 'all' || l.level.toLowerCase() === activeTab)
+                            .slice(0, 50)
+                            .map((log) => {
+                                const style = getLogStyle(log);
+                                return (
                                     <motion.div
                                         key={log.id}
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0 }}
-                                        className="flex flex-col md:flex-row items-start md:items-center gap-1 md:gap-3 group hover:bg-white/5 p-2 rounded border-b border-white/5 md:border-none"
+                                        className={twMerge(
+                                            "flex items-start gap-2 p-2 rounded hover:bg-white/5 transition-colors",
+                                            style.bg
+                                        )}
                                     >
-                                        <div className="flex items-center gap-2 w-full md:w-auto">
-                                            <span className="text-gray-500 whitespace-nowrap text-[10px] md:text-xs">
-                                                {new Date(log.timestamp).toLocaleTimeString()}
-                                            </span>
-                                            <span className={twMerge(
-                                                "font-bold px-1.5 rounded text-[10px] uppercase w-16 text-center",
-                                                log.level === 'ERROR' ? "bg-red-500/20 text-red-400" :
-                                                    log.level === 'WARNING' ? "bg-yellow-500/20 text-yellow-400" :
-                                                        "bg-blue-500/20 text-blue-400"
-                                            )}>
-                                                {log.level}
-                                            </span>
-                                            <span className="text-purple-400 font-semibold w-24 truncate md:hidden">
-                                                [{log.module}]
-                                            </span>
-                                        </div>
-                                        <span className="text-purple-400 font-semibold w-24 truncate hidden md:block">
+                                        <span className="text-gray-500 whitespace-nowrap text-[10px]">
+                                            {new Date(log.timestamp).toLocaleTimeString()}
+                                        </span>
+                                        <span className="text-lg leading-none">
+                                            {style.icon}
+                                        </span>
+                                        <span className={twMerge("font-semibold w-20 text-[10px] truncate", style.color)}>
                                             [{log.module}]
                                         </span>
-                                        <span className="text-gray-300 group-hover:text-white transition-colors break-all">
+                                        <span className={twMerge("flex-1 break-all", style.color)}>
                                             {log.message}
                                         </span>
                                     </motion.div>
-                                ))
-                        )}
-                    </AnimatePresence>
-                </div>
-            </motion.div>
+                                );
+                            })
+                    )}
+                </AnimatePresence>
+            </div>
         </motion.div>
-    );
+    </motion.div>
+);
 }
 
 function StatCard({ title, value, icon: Icon, trend, color }) {
@@ -293,7 +358,7 @@ function StatCard({ title, value, icon: Icon, trend, color }) {
     );
 }
 
-function ModuleCard({ title, status, icon: Icon, description }) {
+function ModuleCard({ title, status, icon: Icon, description, onToggle }) {
     const isRunning = status === 'ON' || status === 'SCANNING';
     const isScanning = status === 'SCANNING';
 
@@ -331,12 +396,15 @@ function ModuleCard({ title, status, icon: Icon, description }) {
                         </div>
                     </div>
                 </div>
-                <button className={twMerge(
-                    "p-2 rounded-full transition-all",
-                    isRunning
-                        ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                        : "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-                )}>
+                <button
+                    onClick={onToggle}
+                    className={twMerge(
+                        "p-2 rounded-full transition-all hover:scale-110",
+                        isRunning
+                            ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                            : "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                    )}
+                >
                     {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 </button>
             </div>

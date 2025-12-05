@@ -1,1 +1,1 @@
-from . import auth, dashboard, settings, radar, history
+from . import auth, dashboard, settings, radar, history, control
