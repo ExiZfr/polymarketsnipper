@@ -428,12 +428,31 @@ class PolymarketRadar:
                 enriched_event['snipe_score'] = self._calculate_snipe_score(enriched_event)
                 enriched_event['urgency'] = self._get_urgency_level(enriched_event['end_date'])
                 
+                # Calculate urgency rate from days remaining
+                days_remaining = enriched_event.get('days_remaining')
+                urgency_rate = 0
+                if days_remaining is not None:
+                    if days_remaining <= 0:
+                        urgency_rate = 0
+                    elif days_remaining <= 1:
+                        urgency_rate = 100
+                    elif days_remaining <= 7:
+                        urgency_rate = 90
+                    elif days_remaining <= 30:
+                        urgency_rate = 70
+                    elif days_remaining <= 90:
+                        urgency_rate = 40
+                    else:
+                        urgency_rate = 10
+                
+                enriched_event['urgency_rate'] = urgency_rate
+                
                 # Add detailed score breakdown for frontend
                 enriched_event['score_breakdown'] = {
                     'trigger_clarity': round(self._assess_trigger_clarity(enriched_event) * 100),
                     'monitorability': round(self._assess_monitorability(enriched_event) * 100),
                     'reaction_speed': round(self._assess_reaction_speed(enriched_event) * 100),
-                    'urgency': round((enriched_event['snipe_score'] / 0.15 if enriched_event['snipe_score'] > 0 else 0) * 100)
+                    'urgency': urgency_rate
                 }
                 
                 # Filter: Only keep snipable markets

@@ -4,12 +4,90 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Filter, Radio, ExternalLink, DollarSign, Calendar, RefreshCw,
     MessageSquare, Mic, Megaphone, Users, AlertCircle, Flame, Clock, Target,
-    Zap, Activity, TrendingUp, HelpCircle, X, Info, Award, BarChart3
+    Zap, Activity, TrendingUp, HelpCircle, X, Info, Award, BarChart3, Bell, Sparkles
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+// New Market Notification Popup
+function NewMarketNotification({ market, onClose }) {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 5000); // Auto-close after 5 seconds
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 300, scale: 0.8 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 300, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className="fixed top-20 right-6 z-50 max-w-sm"
+        >
+            <div className="bg-gradient-to-br from-primary/90 to-accent/90 backdrop-blur-xl text-white rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-white/20 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <motion.div
+                            animate={{ rotate: [0, 15, -15, 0], scale: [1, 1.2, 1] }}
+                            transition={{ duration: 0.5, repeat: 2 }}
+                            className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center"
+                        >
+                            <Sparkles className="w-6 h-6" />
+                        </motion.div>
+                        <div>
+                            <h3 className="font-bold text-sm">New Snipable Market!</h3>
+                            <p className="text-xs opacity-80">High-quality opportunity detected</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 space-y-3">
+                    <h4 className="font-semibold text-sm line-clamp-2 leading-snug">
+                        {market.title}
+                    </h4>
+
+                    <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                            <Flame className="w-4 h-4" />
+                            <span className="font-bold">{(market.snipe_score * 100).toFixed(0)}% Snipability</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span className="font-bold">{market.urgency_rate}% Urgency</span>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <span className="px-2 py-1 bg-white/20 rounded-full text-xs capitalize">
+                            {market.category}
+                        </span>
+                        <span className="px-2 py-1 bg-white/20 rounded-full text-xs capitalize">
+                            {market.urgency}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <motion.div
+                    initial={{ width: "100%" }}
+                    animate={{ width: "0%" }}
+                    transition={{ duration: 5, ease: "linear" }}
+                    className="h-1 bg-white/30"
+                />
+            </div>
+        </motion.div>
+    );
+}
 
 // Help Modal Component
 function HelpModal({ isOpen, onClose }) {
@@ -77,6 +155,29 @@ function HelpModal({ isOpen, onClose }) {
                                 <ScoreRange range="50-64%" color="text-yellow-400" label="Moyen" description="Potentiel modéré, risque acceptable" />
                                 <ScoreRange range="35-49%" color="text-orange-400" label="Faible" description="Risque élevé, conditions sous-optimales" />
                                 <ScoreRange range="0-34%" color="text-red-400" label="Très Faible" description="Non recommandé, filtré automatiquement" />
+                            </div>
+                        </motion.div>
+
+                        {/* Urgency Rate Section */}
+                        <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.15 }}
+                            className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/30 rounded-2xl p-6"
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <Clock className="w-6 h-6 text-red-400" />
+                                <h3 className="text-xl font-bold text-white">Urgency Rate (0-100%)</h3>
+                            </div>
+                            <p className="text-textMuted mb-4">
+                                Taux d'urgence basé sur le temps restant avant expiration du marché.
+                            </p>
+                            <div className="space-y-2 bg-black/20 rounded-xl p-4">
+                                <ScoreRange range="100%" color="text-red-400" label="Critique" description="< 1 jour - Action immédiate requise" />
+                                <ScoreRange range="90%" color="text-orange-400" label="Très Urgent" description="1-7 jours - Haute priorité" />
+                                <ScoreRange range="70%" color="text-yellow-400" label="Urgent" description="7-30 jours - Priorité moyenne" />
+                                <ScoreRange range="40%" color="text-blue-400" label="Modéré" description="30-90 jours - Temps disponible" />
+                                <ScoreRange range="10%" color="text-gray-400" label="Faible" description="> 90 jours - Pas urgent" />
                             </div>
                         </motion.div>
 
@@ -225,7 +326,7 @@ function HelpModal({ isOpen, onClose }) {
                                         <p className="text-xs text-textMuted mt-1">Instantané</p>
                                     </div>
                                     <div>
-                                        <span className="text-textMuted">Urgency:</span>
+                                        <span className="text-textMuted">Urgency Rate:</span>
                                         <span className="text-yellow-400 ml-2 font-bold">70%</span>
                                         <p className="text-xs text-textMuted mt-1">26 jours restants</p>
                                     </div>
@@ -323,6 +424,8 @@ function Markets({ token }) {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedUrgency, setSelectedUrgency] = useState('all');
     const [showHelp, setShowHelp] = useState(false);
+    const [newMarkets, setNewMarkets] = useState([]);
+    const [previousMarketIds, setPreviousMarketIds] = useState(new Set());
 
     const fetchMarkets = async (forceRefresh = false) => {
         try {
@@ -332,7 +435,19 @@ function Markets({ token }) {
                 ? `${API_URL}/radar/events?refresh=true`
                 : `${API_URL}/radar/events`;
             const response = await axios.get(url, config);
-            setMarkets(response.data);
+            const fetchedMarkets = response.data;
+
+            // Detect new markets
+            if (previousMarketIds.size > 0) {
+                const newOnes = fetchedMarkets.filter(m => !previousMarketIds.has(m.id));
+                if (newOnes.length > 0) {
+                    setNewMarkets(prev => [...prev, ...newOnes.slice(0, 3)]); // Show max 3 at a time
+                }
+            }
+
+            // Update market IDs
+            setPreviousMarketIds(new Set(fetchedMarkets.map(m => m.id)));
+            setMarkets(fetchedMarkets);
         } catch (err) {
             console.error("Failed to fetch markets:", err);
         } finally {
@@ -343,7 +458,7 @@ function Markets({ token }) {
 
     useEffect(() => {
         fetchMarkets();
-        const interval = setInterval(() => fetchMarkets(), 60000);
+        const interval = setInterval(() => fetchMarkets(), 60000); // Refresh every minute
         return () => clearInterval(interval);
     }, [token]);
 
@@ -352,6 +467,11 @@ function Markets({ token }) {
         fetchMarkets(true);
     };
 
+    const removeNotification = (marketId) => {
+        setNewMarkets(prev => prev.filter(m => m.id !== marketId));
+    };
+
+    // Filter markets
     const filteredMarkets = markets.filter(market => {
         const matchesSearch = market.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             market.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -387,6 +507,18 @@ function Markets({ token }) {
 
     return (
         <div className="space-y-6 relative">
+            {/* New Market Notifications */}
+            <AnimatePresence>
+                {newMarkets.map((market, index) => (
+                    <div key={market.id} style={{ top: `${80 + index * 180}px` }} className="absolute">
+                        <NewMarketNotification
+                            market={market}
+                            onClose={() => removeNotification(market.id)}
+                        />
+                    </div>
+                ))}
+            </AnimatePresence>
+
             {/* Help Modal */}
             <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
@@ -418,6 +550,7 @@ function Markets({ token }) {
 
             {/* Filters */}
             <div className="bg-surface border border-border rounded-2xl p-4 space-y-4">
+                {/* Search */}
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textMuted" />
                     <input
@@ -429,6 +562,7 @@ function Markets({ token }) {
                     />
                 </div>
 
+                {/* Category & Urgency Filters */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <select
                         value={selectedCategory}
@@ -457,6 +591,7 @@ function Markets({ token }) {
                     </select>
                 </div>
 
+                {/* Results count */}
                 <div className="mt-3 text-sm text-textMuted">
                     Showing {filteredMarkets.length} of {markets.length} high-quality snipable events
                 </div>
@@ -500,6 +635,7 @@ function FlipCard({ event, variants }) {
     const Icon = CATEGORY_ICONS[event.category] || Radio;
     const categoryColor = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
 
+    // Urgency badge color
     const urgencyColors = {
         'critical': 'bg-red-500/20 text-red-400 border-red-500/30',
         'high': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
@@ -509,6 +645,7 @@ function FlipCard({ event, variants }) {
     };
 
     const breakdown = event.score_breakdown || {};
+    const urgencyRate = event.urgency_rate || 0;
 
     return (
         <motion.div
@@ -529,13 +666,21 @@ function FlipCard({ event, variants }) {
                     style={{ backfaceVisibility: 'hidden' }}
                 >
                     <div className="group bg-surface border border-border hover:border-primary/50 rounded-2xl p-5 transition-all hover:shadow-lg hover:shadow-primary/10 flex flex-col h-full relative overflow-hidden">
+                        {/* Snipe Score Indicator */}
                         <div className="absolute top-0 right-0 px-4 py-2 bg-gradient-to-br from-primary/30 to-accent/30 text-white rounded-bl-2xl rounded-tr-2xl text-sm font-bold flex items-center gap-1.5 z-10">
                             <Flame className="w-4 h-4" />
                             {(event.snipe_score * 100).toFixed(0)}%
                         </div>
 
+                        {/* Urgency Rate Badge */}
+                        <div className="absolute top-0 left-0 px-3 py-1.5 bg-gradient-to-br from-red-500/30 to-orange-500/30 text-white rounded-br-2xl rounded-tl-2xl text-xs font-bold flex items-center gap-1.5 z-10">
+                            <Clock className="w-3 h-3" />
+                            {urgencyRate}%
+                        </div>
+
+                        {/* Market Image */}
                         {event.image ? (
-                            <div className="w-full h-40 rounded-xl overflow-hidden mb-4 bg-surfaceHighlight">
+                            <div className="w-full h-40 rounded-xl overflow-hidden mb-4 bg-surfaceHighlight mt-8">
                                 <img
                                     src={event.image}
                                     alt={event.title}
@@ -547,11 +692,12 @@ function FlipCard({ event, variants }) {
                                 />
                             </div>
                         ) : (
-                            <div className="w-full h-40 rounded-xl mb-4 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                            <div className="w-full h-40 rounded-xl mb-4 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mt-8">
                                 <Icon className="w-16 h-16 text-primary/30" />
                             </div>
                         )}
 
+                        {/* Category & Urgency Badges */}
                         <div className="flex gap-2 mb-3">
                             <span className={twMerge("px-3 py-1 text-xs rounded-full border capitalize font-medium", categoryColor)}>
                                 {event.category}
@@ -566,10 +712,12 @@ function FlipCard({ event, variants }) {
                             )}
                         </div>
 
+                        {/* Title */}
                         <h3 className="text-base font-bold text-white mb-3 line-clamp-3 group-hover:text-primary transition-colors leading-snug flex-1">
                             {event.title}
                         </h3>
 
+                        {/* Time Remaining */}
                         {event.days_remaining !== null && (
                             <div className="flex items-center gap-2 text-sm text-textMuted mb-3">
                                 <Clock className="w-4 h-4" />
@@ -577,6 +725,7 @@ function FlipCard({ event, variants }) {
                             </div>
                         )}
 
+                        {/* Click to flip hint */}
                         <div className="mt-auto pt-3 border-t border-border/50 text-center">
                             <span className="text-xs text-textMuted uppercase tracking-wider">
                                 Click for details →
@@ -595,6 +744,7 @@ function FlipCard({ event, variants }) {
                     }}
                 >
                     <div className="bg-gradient-to-br from-surface to-surfaceHighlight border border-primary/30 rounded-2xl p-6 flex flex-col h-full relative overflow-hidden shadow-xl shadow-primary/10">
+                        {/* Background decoration */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-bl-full" />
 
                         <h3 className="text-lg font-bold text-white mb-4 relative z-10">
@@ -602,6 +752,7 @@ function FlipCard({ event, variants }) {
                             Snipability Breakdown
                         </h3>
 
+                        {/* Score bars */}
                         <div className="space-y-4 mb-6 flex-1">
                             <ScoreBar label="🎯 Trigger Clarity" value={breakdown.trigger_clarity || 0} />
                             <ScoreBar label="📡 Monitorability" value={breakdown.monitorability || 0} />
@@ -609,6 +760,7 @@ function FlipCard({ event, variants }) {
                             <ScoreBar label="⏰ Urgency" value={breakdown.urgency || 0} />
                         </div>
 
+                        {/* Market metrics */}
                         <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
                             <div className="bg-black/20 rounded-lg p-3 border border-border/30">
                                 <div className="text-textMuted text-xs mb-1">Volume</div>
@@ -618,8 +770,17 @@ function FlipCard({ event, variants }) {
                                 <div className="text-textMuted text-xs mb-1">Liquidity</div>
                                 <div className="text-white font-bold">${(event.liquidity / 1000).toFixed(1)}K</div>
                             </div>
+                            <div className="bg-black/20 rounded-lg p-3 border border-border/30">
+                                <div className="text-textMuted text-xs mb-1">Urgency Rate</div>
+                                <div className="text-white font-bold">{urgencyRate}%</div>
+                            </div>
+                            <div className="bg-black/20 rounded-lg p-3 border border-border/30">
+                                <div className="text-textMuted text-xs mb-1">Days Left</div>
+                                <div className="text-white font-bold">{event.days_remaining || 'N/A'}</div>
+                            </div>
                         </div>
 
+                        {/* Persons */}
                         {event.persons && event.persons.length > 0 && (
                             <div className="flex gap-2 flex-wrap mb-4">
                                 {event.persons.map((person, idx) => (
@@ -630,6 +791,7 @@ function FlipCard({ event, variants }) {
                             </div>
                         )}
 
+                        {/* Link */}
                         <a
                             href={event.url}
                             target="_blank"
@@ -641,6 +803,7 @@ function FlipCard({ event, variants }) {
                             View on Polymarket
                         </a>
 
+                        {/* Flip back hint */}
                         <div className="mt-3 text-center">
                             <span className="text-xs text-textMuted uppercase tracking-wider">
                                 ← Click to flip back
