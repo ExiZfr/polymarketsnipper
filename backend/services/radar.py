@@ -240,21 +240,29 @@ class PolymarketRadar:
             logger.info("Returning cached political events")
             return self.cache['data']
         
-        # Broad search strategies
+        # Broad search strategies - cast a wide net
         search_queries = [
-            "will",      # "Will Trump say..."
-            "announce",  # "Biden to announce..."
-            "tweet",     # Tweet markets
-            "say",       # "Will X say Y..."
-            "mention"    # "Mention Z in speech..."
+            "will",       # "Will X happen..."
+            "announce",   # Announcements
+            "tweet",      # Tweet markets
+            "say",        # Speech/statement markets
+            "mention",    # Mention markets
+            "trump",      # Trump-specific
+            "biden",      # Biden-specific
+            "elon",       # Elon-specific
+            "president",  # Presidential markets
+            "election"    # Election markets
         ]
         
         all_events = []
         seen_ids = set()
         
+        logger.info(f"Starting market scan with {len(search_queries)} search queries...")
+        
         # Search with each query
         for query in search_queries:
             results = self.search_markets(query, limit=50)
+            logger.info(f"Query '{query}': found {len(results)} raw results")
             
             for event in results:
                 event_id = event.get('id')
@@ -264,56 +272,53 @@ class PolymarketRadar:
                 title = event.get('title', '')
                 description = event.get('description', '')
                 
-                # Check if it's politically relevant
-                text_lower = (title + ' ' + description).lower()
-                is_political = any(person in text_lower for person in POLITICAL_FIGURES)
+                # REMOVED POLITICAL FILTER - Show ALL markets now
+                # Just deduplicate
+                seen_ids.add(event_id)
                 
-                if is_political:
-                    seen_ids.add(event_id)
-                    
-                    # Categorize
-                    category, persons = self._categorize_event(title, description)
-                    
-                    # Process volume
-                    volume = event.get('volume', 0)
-                    if isinstance(volume, str):
-                        try:
-                            volume = float(volume)
-                        except ValueError:
-                            volume = 0
-                    
-                    # Build enriched event
-                    enriched_event = {
-                        "id": event_id,
-                        "title": event.get('title', 'Unknown'),
-                        "slug": event.get('slug', ''),
-                        "description": event.get('description', ''),
-                        "category": category,
-                        "persons": persons,
-                        "markets": event.get('markets', []),
-                        "volume": volume,
-                        "liquidity": event.get('liquidity', 0),
-                        "created_at": event.get('createdAt', event.get('created_at', '')),
-                        "end_date": event.get('endDate', event.get('end_date', '')),
-                        "image": event.get('image', ''),
-                        "url": f"https://polymarket.com/event/{event.get('slug', '')}"
-                    }
-                    
-                    # Calculate snipe score
-                    enriched_event['snipe_score'] = self._calculate_snipe_score(enriched_event)
-                    enriched_event['urgency'] = self._get_urgency_level(enriched_event['end_date'])
-                    
-                    # Calculate days remaining
-                    if enriched_event['end_date']:
-                        try:
-                            end_date = datetime.fromisoformat(enriched_event['end_date'].replace('Z', '+00:00'))
-                            enriched_event['days_remaining'] = max(0, (end_date - datetime.now()).days)
-                        except:
-                            enriched_event['days_remaining'] = None
-                    else:
+                # Categorize
+                category, persons = self._categorize_event(title, description)
+                
+                # Process volume
+                volume = event.get('volume', 0)
+                if isinstance(volume, str):
+                    try:
+                        volume = float(volume)
+                    except ValueError:
+                        volume = 0
+                
+                # Build enriched event
+                enriched_event = {
+                    "id": event_id,
+                    "title": event.get('title', 'Unknown'),
+                    "slug": event.get('slug', ''),
+                    "description": event.get('description', ''),
+                    "category": category,
+                    "persons": persons,
+                    "markets": event.get('markets', []),
+                    "volume": volume,
+                    "liquidity": event.get('liquidity', 0),
+                    "created_at": event.get('createdAt', event.get('created_at', '')),
+                    "end_date": event.get('endDate', event.get('end_date', '')),
+                    "image": event.get('image', ''),
+                    "url": f"https://polymarket.com/event/{event.get('slug', '')}"
+                }
+                
+                # Calculate snipe score
+                enriched_event['snipe_score'] = self._calculate_snipe_score(enriched_event)
+                enriched_event['urgency'] = self._get_urgency_level(enriched_event['end_date'])
+                
+                # Calculate days remaining
+                if enriched_event['end_date']:
+                    try:
+                        end_date = datetime.fromisoformat(enriched_event['end_date'].replace('Z', '+00:00'))
+                        enriched_event['days_remaining'] = max(0, (end_date - datetime.now()).days)
+                    except:
                         enriched_event['days_remaining'] = None
-                    
-                    all_events.append(enriched_event)
+                else:
+                    enriched_event['days_remaining'] = None
+                
+                all_events.append(enriched_event)
         
         # Sort by snipe score (highest first)
         all_events.sort(key=lambda x: x.get('snipe_score', 0), reverse=True)
@@ -322,7 +327,7 @@ class PolymarketRadar:
         self.cache['data'] = all_events
         self.cache['timestamp'] = datetime.now()
         
-        logger.info(f"Found {len(all_events)} political events")
+        logger.info(f"✓ Radar scan complete: {len(all_events)} snipable markets detected")
         return all_events
 
     def get_tweet_markets(self, use_cache: bool = True) -> List[Dict]:
