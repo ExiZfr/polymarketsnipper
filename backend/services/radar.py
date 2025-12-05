@@ -244,6 +244,23 @@ class PolymarketRadar:
             trigger_clarity * 0.30 +
             monitorability * 0.25 +
             reaction_speed * 0.20 +
+            urgency_score * 0.15 +
+            liquidity_score * 0.05 +
+            volume_score * 0.05
+        )
+        
+        return snipe_score
+    
+    def _get_urgency_level(self, end_date_str: str) -> str:
+        """
+        Get urgency level label from end date.
+        
+        Returns:
+            'critical', 'high', 'medium', 'low', 'expired', or 'unknown'
+        """
+        if not end_date_str:
+            return 'unknown'
+        
         try:
             end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
             days_remaining = (end_date - datetime.now()).days
@@ -260,6 +277,41 @@ class PolymarketRadar:
                 return 'low'
         except:
             return 'unknown'
+    
+    def _is_snipable(self, event: Dict) -> bool:
+        """
+        Determine if an event is worth sniping based on filters.
+        
+        Filters:
+        - Minimum snipe score of 0.35 (35%)
+        - Minimum volume of $5,000
+        - Minimum liquidity of $2,000
+        - Not expired
+        
+        Returns:
+            True if event passes all filters
+        """
+        # Score filter
+        snipe_score = event.get('snipe_score', 0)
+        if snipe_score < 0.35:
+            return False
+        
+        # Volume filter
+        volume = event.get('volume', 0)
+        if volume < 5000:
+            return False
+        
+        # Liquidity filter
+        liquidity = event.get('liquidity', 0)
+        if liquidity < 2000:
+            return False
+        
+        # Urgency filter (not expired)
+        urgency = event.get('urgency', '')
+        if urgency == 'expired':
+            return False
+        
+        return True
 
     def search_markets(self, query: str, limit: int = 100) -> List[Dict]:
         """
