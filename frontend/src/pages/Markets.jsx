@@ -419,15 +419,10 @@ const CATEGORY_COLORS = {
 function Markets({ token }) {
     const [markets, setMarkets] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState('all');
-    const [selectedUrgency, setSelectedUrgency] = useState('all');
-    const [selectedUrgencyRate, setSelectedUrgencyRate] = useState('all');
     const [showHelp, setShowHelp] = useState(false);
     const [newMarkets, setNewMarkets] = useState([]);
     const [previousMarketIds, setPreviousMarketIds] = useState(new Set());
-    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [favorites, setFavorites] = useState(new Set());
 
     const fetchMarkets = async (forceRefresh = false) => {
@@ -510,29 +505,7 @@ function Markets({ token }) {
         setNewMarkets(prev => prev.filter(m => m.id !== marketId));
     };
 
-    // Filter markets
-    const filteredMarkets = markets.filter(market => {
-        const matchesSearch = market.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            market.description.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = selectedCategory === 'all' || market.category === selectedCategory;
-        const matchesUrgency = selectedUrgency === 'all' || market.urgency === selectedUrgency;
-        const matchesFavorites = !showFavoritesOnly || favorites.has(market.id);
 
-        // Urgency rate filter
-        let matchesUrgencyRate = true;
-        if (selectedUrgencyRate !== 'all') {
-            const rate = market.urgency_rate || 0;
-            switch (selectedUrgencyRate) {
-                case 'critical': matchesUrgencyRate = rate >= 90; break;
-                case 'high': matchesUrgencyRate = rate >= 70 && rate < 90; break;
-                case 'medium': matchesUrgencyRate = rate >= 40 && rate < 70; break;
-                case 'low': matchesUrgencyRate = rate < 40; break;
-            }
-        }
-
-
-        return matchesSearch && matchesCategory && matchesUrgency && matchesUrgencyRate && matchesFavorites;
-    });
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -601,75 +574,7 @@ function Markets({ token }) {
                 </button>
             </div>
 
-            {/* Filters */}
-            <div className="bg-surface border border-border rounded-2xl p-4 space-y-4">
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-textMuted" />
-                    <input
-                        type="text"
-                        placeholder="Search events..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-3 text-white placeholder-textMuted focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                    />
-                </div>
 
-                {/* Category & Urgency Rate Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="bg-background border border-border rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                    >
-                        <option value="all">All Categories</option>
-                        <option value="tweet">🐦 Tweets</option>
-                        <option value="speech">🎤 Speeches</option>
-                        <option value="announcement">📢 Announcements</option>
-                        <option value="interview">👥 Interviews</option>
-                        <option value="statement">⚠️ Statements</option>
-                        <option value="action">🎯 Actions</option>
-                    </select>
-
-                    <select
-                        value={selectedUrgencyRate}
-                        onChange={(e) => setSelectedUrgencyRate(e.target.value)}
-                        className="bg-background border border-border rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                    >
-                        <option value="all">All Urgency Rates</option>
-                        <option value="critical">⚡ Critical (90-100%)</option>
-                        <option value="high">🔥 High (70-89%)</option>
-                        <option value="medium">⏰ Medium (40-69%)</option>
-                        <option value="low">📅 Low (0-39%)</option>
-                    </select>
-                </div>
-
-                {/* Favorites Filter */}
-                <div className="flex items-center gap-3 pt-3 border-t border-border/50">
-                    <button
-                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                        className={twMerge(
-                            "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all",
-                            showFavoritesOnly
-                                ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400"
-                                : "bg-background border-border text-textMuted hover:border-yellow-500/30"
-                        )}
-                    >
-                        <Star className={twMerge("w-4 h-4", showFavoritesOnly && "fill-yellow-400")} />
-                        {showFavoritesOnly ? "Showing Favorites" : "Show Favorites Only"}
-                    </button>
-                    {favorites.size > 0 && (
-                        <span className="text-sm text-textMuted">
-                            {favorites.size} favorite{favorites.size !== 1 ? 's' : ''}
-                        </span>
-                    )}
-                </div>
-
-                {/* Results count */}
-                <div className="mt-3 text-sm text-textMuted">
-                    Showing {filteredMarkets.length} of {markets.length} high-quality snipable events
-                </div>
-            </div>
 
             {/* Content Area */}
             {isLoading && markets.length === 0 ? (
@@ -678,14 +583,14 @@ function Markets({ token }) {
                         <div key={i} className="h-96 bg-surface/50 rounded-2xl animate-pulse" />
                     ))}
                 </div>
-            ) : filteredMarkets.length === 0 ? (
+            ) : markets.length === 0 ? (
                 <div className="bg-surface border border-border rounded-2xl p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
                     <div className="w-20 h-20 bg-surfaceHighlight rounded-full flex items-center justify-center mb-6">
                         <Radio className="w-10 h-10 text-textMuted" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">No Events Found</h3>
                     <p className="text-textMuted max-w-md mx-auto">
-                        {searchTerm ? `No results for "${searchTerm}"` : "No high-quality snipable events detected yet. The radar is scanning..."}
+                        No high-quality snipable events detected yet. The radar is scanning...
                     </p>
                 </div>
             ) : (
@@ -695,7 +600,7 @@ function Markets({ token }) {
                     animate="visible"
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
-                    {filteredMarkets.map((market) => (
+                    {markets.map((market) => (
                         <FlipCard
                             key={market.id}
                             event={market}

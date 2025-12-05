@@ -91,7 +91,7 @@ class MarketFavorite(Base):
     notes = Column(Text, nullable=True)  # User notes about why favorited
 
 class TrackedWallet(Base):
-    `"`"Track Polymarket wallets for copy trading`"`"
+    """Track Polymarket wallets for copy trading"""
     __tablename__ = 'tracked_wallets'
     id = Column(Integer, primary_key=True, index=True)
     address = Column(String(42), unique=True, index=True, nullable=False)
@@ -105,3 +105,31 @@ class TrackedWallet(Base):
     last_synced = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# ====== RADAR V2 MODELS ======
+
+class WalletScore(Base):
+    """Smart Money wallet scoring for V2 Radar"""
+    __tablename__ = 'wallet_scores'
+    id = Column(Integer, primary_key=True, index=True)
+    wallet_address = Column(String(42), unique=True, index=True, nullable=False)
+    score_grade = Column(String(1), index=True)  # A, B, C, D
+    success_rate = Column(Float)  # Win rate (0-1)
+    roi_adjusted = Column(Float)  # Risk-adjusted ROI
+    timing_score = Column(Float)  # Entry timing score (0-1)
+    total_markets = Column(Integer, default=0)
+    total_volume = Column(Float, default=0.0)
+    avg_entry_timing = Column(Float, nullable=True)  # Avg seconds to significant move
+    last_updated = Column(DateTime, default=datetime.utcnow, index=True)
+
+class SnipeSignal(Base):
+    """Historical record of snipe signals for analysis"""
+    __tablename__ = 'snipe_signals'
+    id = Column(Integer, primary_key=True, index=True)
+    market_id = Column(String, index=True)
+    signal_type = Column(String, index=True)  # CRITICAL_SNIPE, SMART_MONEY, SPIKE, etc.
+    side = Column(String)  # YES or NO
+    magnitude = Column(Float)  # Signal strength (0-1)
+    wallets = Column(Text, nullable=True)  # JSON array of wallet addresses (for smart money)
+    metadata = Column(Text, nullable=True)  # JSON extra data
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
