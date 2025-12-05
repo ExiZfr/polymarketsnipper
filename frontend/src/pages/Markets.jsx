@@ -423,6 +423,7 @@ function Markets({ token }) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedUrgency, setSelectedUrgency] = useState('all');
+    const [selectedUrgencyRate, setSelectedUrgencyRate] = useState('all');
     const [showHelp, setShowHelp] = useState(false);
     const [newMarkets, setNewMarkets] = useState([]);
     const [previousMarketIds, setPreviousMarketIds] = useState(new Set());
@@ -535,8 +536,8 @@ function Markets({ token }) {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Political Radar v2</h1>
-                    <p className="text-textMuted text-sm md:text-base">Snipable political events & declarations</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Radar V2</h1>
+                    <p className="text-textMuted text-sm md:text-base">High-quality snipable markets</p>
                 </div>
                 <button
                     onClick={handleRefresh}
@@ -562,8 +563,8 @@ function Markets({ token }) {
                     />
                 </div>
 
-                {/* Category & Urgency Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Category, Urgency & Urgency Rate Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
@@ -583,11 +584,23 @@ function Markets({ token }) {
                         onChange={(e) => setSelectedUrgency(e.target.value)}
                         className="bg-background border border-border rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
                     >
-                        <option value="all">All Urgency</option>
+                        <option value="all">All Urgency Levels</option>
                         <option value="critical">🔴 Critical</option>
                         <option value="high">🟠 High</option>
                         <option value="medium">🟡 Medium</option>
                         <option value="low">🟢 Low</option>
+                    </select>
+
+                    <select
+                        value={selectedUrgencyRate}
+                        onChange={(e) => setSelectedUrgencyRate(e.target.value)}
+                        className="bg-background border border-border rounded-xl px-4 py-2.5 text-white focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                    >
+                        <option value="all">All Urgency Rates</option>
+                        <option value="critical">⚡ Critical (90-100%)</option>
+                        <option value="high">🔥 High (70-89%)</option>
+                        <option value="medium">⏰ Medium (40-69%)</option>
+                        <option value="low">📅 Low (0-39%)</option>
                     </select>
                 </div>
 
